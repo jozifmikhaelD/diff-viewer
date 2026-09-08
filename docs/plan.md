@@ -149,7 +149,7 @@ void (Go binary)
 - `GET /api/changeset?wt=&(commit=|from=&to=[&mergeBase=1]|worktree=staged|unstaged|untracked|all)` → files (status, rename, binary, submodule, +/−) + totals; language breakdown computed client-side
 - `GET /api/diff?wt=&<selector>&path=&oldPath=&context=&ws=1` → structured hunks + both full sides (≤2 MiB / 20k lines) so the client renders side-by-side and expands context locally
 - `GET /api/deps?wt=&rev=&paths=...&depth=1` → nodes + edges
-- `GET /api/events` → SSE stream (worktree changed, refs changed)
+- `GET /api/events` → SSE `change` events `{worktree, kind: worktree|refs}` from an fsnotify watcher per worktree (dirs derived from `git ls-files` so ignored trees cost nothing; polls `git status` when the directory count exceeds the fd budget); `-no-watch` disables
 
 **Frontend libs (pinned when scaffolding):** React, Vite, TanStack Query, `@git-diff-view/react` or `react-diff-view` for rendering, Shiki for highlighting, `d3-force` or `cytoscape.js` for the map, `react-virtual` for lists.
 
@@ -191,7 +191,7 @@ Each milestone is independently demoable. Estimates are rough engineering days a
 - **Tests:** hunk parser fixtures (no newline at EOF, CRLF, empty file, binary, rename with edits, mode-only change); `/api/diff` golden tests; diff renderer component tests for each fixture in both modes plus keyboard nav; first Playwright flow: open repo → click commit → open file → toggle side-by-side.
 - **Demo:** full commit review without leaving the page.
 
-### M4 — Range & working-tree UX (2d)
+### M4 — Range & working-tree UX (2d) ✅ 2026-09-08
 - Shift-click range selection; "branch vs base" preset via merge-base; staged/unstaged/all tabs.
 - `internal/watch` + SSE; live refresh of working-tree row and diffs.
 - **Tests:** merge-base preset and range-normalisation unit tests; watcher tests (debounce, ignore `.git` internals except refs, worktree-scoped events); SSE endpoint test; Playwright flow: mutate fixture working tree → UI updates without reload; shift-click range flow.

@@ -745,3 +745,16 @@ button.ghost {
   color: var(--del);
   font-size: 0.8em;
 }
+
+/* ---- ranges ---- */
+.commit-row.in-range {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.range-header h2 code {
+  font-size: 0.95em;
+}
+button.ghost.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}

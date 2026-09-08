@@ -13,6 +13,7 @@ interface Props {
   selection: NonNullable<Selection>;
   selectedPath: string | null;
   onSelectPath: (path: string) => void;
+  onSelectionChange?: (sel: Selection) => void;
 }
 
 const MODES: { value: WorktreeMode; label: string }[] = [
@@ -42,18 +43,23 @@ function usePersisted<T extends string>(key: string, fallback: T, valid: readonl
   return [value, set];
 }
 
-export function ChangesetView({ worktree, selection, selectedPath, onSelectPath }: Props) {
+export function ChangesetView({ worktree, selection, selectedPath, onSelectPath, onSelectionChange }: Props) {
   const [mode, setMode] = useState<WorktreeMode>("all");
   const [view, setView] = usePersisted<FileView>("void.fileView", "tree", ["tree", "flat"]);
   const [diffMode, setDiffMode] = usePersisted<DiffMode>("void.diffMode", "unified", ["unified", "split"]);
   const [ws, setWs] = usePersisted<"0" | "1">("void.ignoreWhitespace", "0", ["0", "1"]);
   const [filter, setFilter] = useState("");
 
-  const selector: ChangesetSelector = selection.kind === "commit" ? { commit: selection.sha } : { worktree: mode };
+  const selector: ChangesetSelector =
+    selection.kind === "commit"
+      ? { commit: selection.sha }
+      : selection.kind === "range"
+        ? { from: selection.from, to: selection.to, mergeBase: selection.mergeBase }
+        : { worktree: mode };
   const changeset = useQuery({
     queryKey: ["changeset", worktree.path, selector],
     queryFn: () => changesetApi.changeset(worktree.path, selector),
-    refetchInterval: selection.kind === "worktree" ? 3000 : false,
+    refetchInterval: selection.kind === "worktree" ? 30000 : false,
   });
   const commit = useQuery({
     queryKey: ["commit", worktree.path, selection.kind === "commit" ? selection.sha : ""],
@@ -107,6 +113,8 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath 
     <div className="changeset">
       {selection.kind === "commit" ? (
         <CommitHeader commit={commit.data} sha={selection.sha} />
+      ) : selection.kind === "range" ? (
+        <RangeHeader selection={selection} onChange={onSelectionChange} from={changeset.data?.from} to={changeset.data?.to} />
       ) : (
         <header className="changeset-header">
           <h2>Working tree</h2>
@@ -159,6 +167,44 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath 
         </>
       )}
     </div>
+  );
+}
+
+const short = (rev: string | undefined) => (rev && /^[0-9a-f]{8,40}$/.test(rev) ? rev.slice(0, 7) : rev);
+
+function RangeHeader({
+  selection,
+  onChange,
+  from,
+  to,
+}: {
+  selection: Extract<NonNullable<Selection>, { kind: "range" }>;
+  onChange?: (sel: Selection) => void;
+  from?: string;
+  to?: string;
+}) {
+  return (
+    <header className="changeset-header range-header">
+      <h2>
+        Range <code title={from}>{short(from) ?? short(selection.from)}</code>
+        {selection.mergeBase ? " … " : " .. "}
+        <code title={to}>{short(to) ?? short(selection.to)}</code>
+      </h2>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={selection.mergeBase}
+          onChange={(e) => onChange?.({ ...selection, mergeBase: e.target.checked })}
+          disabled={!onChange}
+        />{" "}
+        Compare against merge base
+      </label>
+      <p className="commit-header-meta">
+        {selection.mergeBase
+          ? `Changes on ${selection.to} since it diverged from ${selection.from}.`
+          : `Everything that differs between ${selection.from} and ${selection.to}.`}
+      </p>
+    </header>
   );
 }
 

@@ -21,6 +21,7 @@ import (
 
 	"void/internal/api"
 	"void/internal/git"
+	"void/internal/watch"
 	"void/web"
 )
 
@@ -39,6 +40,7 @@ func run() error {
 	host := fs.String("host", "127.0.0.1", "interface to bind (use 0.0.0.0 inside a dev container)")
 	port := fs.Int("port", 0, "port to listen on (0 picks a free port)")
 	open := fs.Bool("open", false, "open the UI in the default browser")
+	noWatch := fs.Bool("no-watch", false, "disable file watching and live updates")
 	showVersion := fs.Bool("version", false, "print version and exit")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "usage: void [flags] [path]\n\nServe a visual changeset viewer for the git repository at path (default \".\").\n\n")
@@ -77,8 +79,13 @@ func run() error {
 	url := displayURL(*host, ln.Addr().(*net.TCPAddr).Port)
 	fmt.Printf("void %s\n  repo: %s\n  url:  %s\n", version, repo.Root, url)
 
+	var bus *watch.Bus
+	if !*noWatch {
+		bus = watch.NewBus()
+		startWatchers(ctx, repo, bus)
+	}
 	srv := &http.Server{
-		Handler:           api.New(repo, web.Dist(), version),
+		Handler:           api.New(repo, web.Dist(), version, bus),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	errc := make(chan error, 1)
@@ -95,6 +102,32 @@ func run() error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		return srv.Shutdown(shutdownCtx)
+	}
+}
+
+// startWatchers watches every worktree of the repository; failures degrade to
+// no live updates for that worktree rather than aborting startup.
+func startWatchers(ctx context.Context, repo *git.Repo, bus *watch.Bus) {
+	wts, err := repo.Worktrees(ctx)
+	if err != nil {
+		log.Printf("watch: list worktrees: %v", err)
+		wts = []git.Worktree{{Path: repo.Root}}
+	}
+	for _, wt := range wts {
+		if wt.Bare || wt.Prunable {
+			continue
+		}
+		r, err := git.Open(ctx, wt.Path)
+		if err != nil {
+			log.Printf("watch %s: %v", wt.Path, err)
+			continue
+		}
+		w := watch.New(r.Root, r.GitDir, r.CommonDir, bus, watch.Options{})
+		go func() {
+			if err := w.Run(ctx); err != nil {
+				log.Printf("watch %s: %v", r.Root, err)
+			}
+		}()
 	}
 }
 

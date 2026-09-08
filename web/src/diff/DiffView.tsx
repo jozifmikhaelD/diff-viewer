@@ -22,7 +22,7 @@ export function DiffView({ worktree, selector, file, mode, onModeChange, ignoreW
   const query = useQuery({
     queryKey: ["diff", worktree.path, selector, file.path, file.oldPath ?? "", ignoreWhitespace],
     queryFn: () => diffApi.file(worktree.path, selector, file.path, file.oldPath, { ignoreWhitespace }),
-    refetchInterval: "worktree" in selector ? 3000 : false,
+    refetchInterval: "worktree" in selector ? 30000 : false,
   });
   const [gaps, setGaps] = useState<GapState>({});
   const fd = query.data;

@@ -5,7 +5,7 @@ working tree and get totals, the file list, readable diffs, and a dependency map
 of the changed files. Works with any repo, inside dev containers, and across
 worktrees.
 
-Status: **M3 (diff viewer)**: click a commit or the working tree, browse the file tree, and read unified or side-by-side diffs with word-level highlights, expandable context, whitespace toggle, and j/k n/p / keyboard navigation. Ranges and live updates land in M4. See [docs/plan.md](docs/plan.md) for the press release,
+Status: **M4 (ranges + live updates)**: commits, shift-click ranges, branch-vs-base, and the working tree, with a file tree and unified or side-by-side diffs (word highlights, expandable context, whitespace toggle, keyboard navigation). Edits and commits appear live via a file watcher. The dependency map lands in M5. See [docs/plan.md](docs/plan.md) for the press release,
 requirements, and milestone breakdown.
 
 ## Run

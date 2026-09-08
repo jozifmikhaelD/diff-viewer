@@ -8,21 +8,23 @@ interface Props {
   lane: LaneRow;
   laneCount: number;
   selected: boolean;
-  onSelect: (sha: string) => void;
+  inRange?: boolean;
+  onSelect: (sha: string, shift: boolean) => void;
   style?: React.CSSProperties;
 }
 
-export function CommitRow({ commit, lane, laneCount, selected, onSelect, style }: Props) {
+export function CommitRow({ commit, lane, laneCount, selected, inRange = false, onSelect, style }: Props) {
   return (
     <div
       role="option"
       aria-selected={selected}
       tabIndex={-1}
-      className={`commit-row${selected ? " selected" : ""}`}
+      className={`commit-row${selected ? " selected" : ""}${inRange ? " in-range" : ""}`}
       style={{ ...style, height: ROW_HEIGHT }}
-      onClick={() => onSelect(commit.sha)}
+      title="Click to select · Shift+click to select a range"
+      onClick={(e) => onSelect(commit.sha, e.shiftKey)}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") onSelect(commit.sha);
+        if (e.key === "Enter" || e.key === " ") onSelect(commit.sha, e.shiftKey);
       }}
       data-sha={commit.sha}
     >

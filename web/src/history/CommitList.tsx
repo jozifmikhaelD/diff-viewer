@@ -5,9 +5,10 @@ import { api, type Commit, type Worktree } from "../api";
 import { ROW_HEIGHT } from "./CommitGraph";
 import { CommitRow } from "./CommitRow";
 import { layoutLanes } from "./lanes";
+import { anchorOf, rangeFromClick, type Selection } from "./selection";
 import { WorkingTreeRow } from "./WorkingTreeRow";
 
-export type Selection = { kind: "commit"; sha: string } | { kind: "worktree" } | null;
+export type { Selection } from "./selection";
 
 interface Props {
   worktree: Worktree;
@@ -47,6 +48,26 @@ export function CommitList({ worktree, ref, selection, onSelect, pageSize = 200,
       },
     }),
   });
+
+  const order = useMemo(() => commits.map((c) => c.sha), [commits]);
+  const inRange = useMemo(() => {
+    if (selection?.kind !== "range") return new Set<string>();
+    const to = order.indexOf(selection.to);
+    const from = order.indexOf(selection.from);
+    if (to === -1 || from === -1) return new Set<string>();
+    return new Set(order.slice(to, from + 1));
+  }, [selection, order]);
+  const handleSelect = (sha: string, shift: boolean) => {
+    const anchor = anchorOf(selection);
+    if (shift && anchor) {
+      const range = rangeFromClick(anchor, sha, order);
+      if (range) {
+        onSelect(range);
+        return;
+      }
+    }
+    onSelect({ kind: "commit", sha });
+  };
 
   const items = virtualizer.getVirtualItems();
   const lastIndex = items.length > 0 ? items[items.length - 1].index : -1;
@@ -94,8 +115,12 @@ export function CommitList({ worktree, ref, selection, onSelect, pageSize = 200,
                 commit={commit}
                 lane={rows[item.index]}
                 laneCount={laneCount}
-                selected={selection?.kind === "commit" && selection.sha === commit.sha}
-                onSelect={(sha) => onSelect({ kind: "commit", sha })}
+                selected={
+                  (selection?.kind === "commit" && selection.sha === commit.sha) ||
+                  (selection?.kind === "range" && (selection.from === commit.sha || selection.to === commit.sha))
+                }
+                inRange={inRange.has(commit.sha)}
+                onSelect={handleSelect}
                 style={style}
               />
             );

@@ -17,6 +17,7 @@ import (
 	"sync"
 
 	"void/internal/git"
+	"void/internal/watch"
 )
 
 const (
@@ -31,14 +32,17 @@ type Server struct {
 	version string
 	mux     *http.ServeMux
 
+	bus *watch.Bus // nil disables /api/events
+
 	mu    sync.Mutex
 	repos map[string]*git.Repo // opened worktrees by path
 }
 
-// New builds a Server for repo, serving static assets from static.
-func New(repo *git.Repo, static fs.FS, version string) *Server {
+// New builds a Server for repo, serving static assets from static. bus may be
+// nil, in which case live updates are disabled.
+func New(repo *git.Repo, static fs.FS, version string, bus *watch.Bus) *Server {
 	s := &Server{
-		repo: repo, static: static, version: version, mux: http.NewServeMux(),
+		repo: repo, static: static, version: version, mux: http.NewServeMux(), bus: bus,
 		repos: map[string]*git.Repo{repo.Root: repo},
 	}
 	s.mux.HandleFunc("GET /api/health", s.handleHealth)
@@ -46,6 +50,7 @@ func New(repo *git.Repo, static fs.FS, version string) *Server {
 	s.mux.HandleFunc("GET /api/log", s.handleLog)
 	s.mux.HandleFunc("GET /api/changeset", s.handleChangeset)
 	s.mux.HandleFunc("GET /api/diff", s.handleDiff)
+	s.mux.HandleFunc("GET /api/events", s.handleEvents)
 	s.mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "unknown api route")
 	})

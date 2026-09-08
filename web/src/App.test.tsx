@@ -42,6 +42,26 @@ describe("App", () => {
     expect(calls.some((c) => c.startsWith("/api/log?wt=%2Fwork%2Fwt-feature"))).toBe(true);
   });
 
+  it("offers a branch-vs-base comparison for non-default branches", async () => {
+    const calls = mockFetch({
+      "/api/health": { body: { ok: true, version: "dev" } },
+      "/api/repo": { body: repoInfo },
+      "/api/log": { body: { commits: [], hasMore: false, skip: 0, limit: 200 } },
+      "/api/changeset": { body: { kind: "range", from: "c2c2c2c2", to: "f2f2f2f2", files: [], totals: { files: 0, additions: 0, deletions: 0 } } },
+    });
+    renderWithQuery(<App />);
+    const select = await screen.findByRole("combobox");
+    expect(screen.queryByRole("button", { name: /vs main/ })).not.toBeInTheDocument(); // main worktree is on main
+    const user = userEvent.setup();
+    await user.selectOptions(select, "/work/wt-feature");
+    const btn = await screen.findByRole("button", { name: "feature vs main" });
+    await user.click(btn);
+    expect(await screen.findByRole("heading", { name: /Range/ })).toHaveTextContent("c2c2c2c … f2f2f2f");
+    expect(calls).toContain("/api/changeset?wt=%2Fwork%2Fwt-feature&from=main&to=HEAD&mergeBase=1");
+    await user.click(screen.getByRole("checkbox", { name: /merge base/ }));
+    expect(calls).toContain("/api/changeset?wt=%2Fwork%2Fwt-feature&from=main&to=HEAD");
+  });
+
   it("surfaces API errors", async () => {
     mockFetch({
       "/api/health": { body: { ok: true, version: "dev" } },

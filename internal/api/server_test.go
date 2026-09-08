@@ -12,6 +12,7 @@ import (
 
 	"void/internal/git"
 	"void/internal/testutil"
+	"void/internal/watch"
 )
 
 type testServer struct {
@@ -26,7 +27,7 @@ func newTestServer(t *testing.T, static fstest.MapFS) testServer {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return testServer{New(repo, static, "test"), base}
+	return testServer{New(repo, static, "test", watch.NewBus()), base}
 }
 
 func get(t *testing.T, h http.Handler, target string) *httptest.ResponseRecorder {

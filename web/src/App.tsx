@@ -3,10 +3,23 @@ import { useState } from "react";
 import { api, type Worktree } from "./api";
 import { ChangesetView } from "./changeset/ChangesetView";
 import { CommitList, type Selection } from "./history/CommitList";
+import { useLiveUpdates } from "./live";
 import { WorktreeSwitcher } from "./history/WorktreeSwitcher";
 
+function selectionKey(sel: NonNullable<Selection>): string {
+  switch (sel.kind) {
+    case "commit":
+      return sel.sha;
+    case "range":
+      return `${sel.from}..${sel.to}`;
+    default:
+      return "worktree";
+  }
+}
+
 export default function App() {
-  const repo = useQuery({ queryKey: ["repo"], queryFn: api.repo, refetchInterval: 5000 });
+  const repo = useQuery({ queryKey: ["repo"], queryFn: api.repo, refetchInterval: 30000 });
+  useLiveUpdates();
   const health = useQuery({ queryKey: ["health"], queryFn: api.health, staleTime: Infinity });
 
   const [wtPath, setWtPath] = useState<string | null>(null);
@@ -26,6 +39,10 @@ export default function App() {
     setSelection(sel);
     setSelectedPath(null);
   };
+  const defaultBranch = repo.data?.defaultBranch ?? "";
+  const canCompareBase = Boolean(current && defaultBranch && !current.detached && current.branch !== defaultBranch);
+  const compareBase = () => select({ kind: "range", from: defaultBranch, to: "HEAD", mergeBase: true });
+  const comparingBase = selection?.kind === "range" && selection.from === defaultBranch && selection.to === "HEAD";
 
   return (
     <div className="app">
@@ -33,6 +50,11 @@ export default function App() {
         <h1>void</h1>
         {repo.data && current && (
           <WorktreeSwitcher worktrees={worktrees} value={current.path} onChange={switchWorktree} />
+        )}
+        {canCompareBase && (
+          <button type="button" className={`ghost${comparingBase ? " on" : ""}`} onClick={compareBase} title={`Changes on ${current?.branch} since it diverged from ${defaultBranch}`}>
+            {current?.branch} vs {defaultBranch}
+          </button>
         )}
         <span className="spacer" />
         {repo.data && <span className="repo-root" title={repo.data.root}>{repo.data.root}</span>}
@@ -54,11 +76,12 @@ export default function App() {
               <p className="empty">Select a commit or the working tree to see its changes.</p>
             ) : (
               <ChangesetView
-                key={`${current.path}:${selection.kind === "commit" ? selection.sha : "worktree"}`}
+                key={`${current.path}:${selectionKey(selection)}`}
                 worktree={current}
                 selection={selection}
                 selectedPath={selectedPath}
                 onSelectPath={setSelectedPath}
+                onSelectionChange={select}
               />
             )}
           </main>

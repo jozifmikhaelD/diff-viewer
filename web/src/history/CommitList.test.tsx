@@ -53,6 +53,28 @@ describe("CommitList", () => {
     expect(onSelect).toHaveBeenCalledWith({ kind: "worktree" });
   });
 
+  it("shift-click selects a range and highlights the commits between", async () => {
+    mockFetch({ "/api/log": { body: { commits, hasMore: false, skip: 0, limit: 200 } } });
+    const onSelect = vi.fn();
+    const { rerender } = renderWithQuery(
+      <CommitList worktree={worktreeMain} selection={{ kind: "commit", sha: "t1t1t1t1" }} onSelect={onSelect} testRect={rect} />,
+    );
+    await screen.findByText("c2: add version");
+    const user = userEvent.setup();
+    await user.keyboard("{Shift>}");
+    await user.click(screen.getByText("c2: add version"));
+    await user.keyboard("{/Shift}");
+    expect(onSelect).toHaveBeenCalledWith({ kind: "range", from: "c2c2c2c2", to: "t1t1t1t1", mergeBase: false });
+    rerender(
+      <CommitList worktree={worktreeMain} selection={{ kind: "range", from: "c2c2c2c2", to: "t1t1t1t1", mergeBase: false }} onSelect={onSelect} testRect={rect} />,
+    );
+    const rows = screen.getAllByRole("option");
+    expect(rows.slice(2, 6).every((r) => r.classList.contains("in-range"))).toBe(true);
+    expect(rows[1]).not.toHaveClass("in-range");
+    expect(rows[2]).toHaveAttribute("aria-selected", "true");
+    expect(rows[5]).toHaveAttribute("aria-selected", "true");
+  });
+
   it("fetches the next page when the loader row becomes visible", async () => {
     const page1 = commits.slice(0, 3);
     const page2 = commits.slice(3);
