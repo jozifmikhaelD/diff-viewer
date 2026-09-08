@@ -5,7 +5,7 @@ working tree and get totals, the file list, readable diffs, and a dependency map
 of the changed files. Works with any repo, inside dev containers, and across
 worktrees.
 
-Status: **M2 (changeset summary)**: click a commit or the working tree to see totals, language breakdown, and a file tree with per-file +/−. Per-file diffs land in M3. See [docs/plan.md](docs/plan.md) for the press release,
+Status: **M3 (diff viewer)**: click a commit or the working tree, browse the file tree, and read unified or side-by-side diffs with word-level highlights, expandable context, whitespace toggle, and j/k n/p / keyboard navigation. Ranges and live updates land in M4. See [docs/plan.md](docs/plan.md) for the press release,
 requirements, and milestone breakdown.
 
 ## Run

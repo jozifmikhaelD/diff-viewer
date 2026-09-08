@@ -147,7 +147,7 @@ void (Go binary)
 - `GET /api/repo` → root, worktrees, default branch, HEAD per worktree
 - `GET /api/log?wt=&ref=&skip=&limit=&author=&grep=` → commits with parents and refs; lane layout is computed client-side (pure function, continues across pages)
 - `GET /api/changeset?wt=&(commit=|from=&to=[&mergeBase=1]|worktree=staged|unstaged|untracked|all)` → files (status, rename, binary, submodule, +/−) + totals; language breakdown computed client-side
-- `GET /api/diff?wt=&from=&to=&path=` → hunks (structured, not raw text)
+- `GET /api/diff?wt=&<selector>&path=&oldPath=&context=&ws=1` → structured hunks + both full sides (≤2 MiB / 20k lines) so the client renders side-by-side and expands context locally
 - `GET /api/deps?wt=&rev=&paths=...&depth=1` → nodes + edges
 - `GET /api/events` → SSE stream (worktree changed, refs changed)
 
@@ -184,7 +184,7 @@ Each milestone is independently demoable. Estimates are rough engineering days a
 - **Tests:** numstat/name-status parsers (renames, copies, binary `-`, type change, paths with spaces/unicode); golden tests for every mode of `/api/changeset` (commit, range, staged, unstaged, untracked, all); file-tree component tests (grouping, filter, empty state).
 - **Demo:** click a commit or range, see totals and file list.
 
-### M3 — Diff viewer (4d)
+### M3 — Diff viewer (4d) ✅ 2026-09-08 (syntax highlighting deferred to M6 polish)
 - `diff.go`: per-file structured hunks; `show.go` for full-file content at both revs; rename/binary handling.
 - API `/api/diff`.
 - UI: side-by-side and unified, Shiki highlighting, word-level diff, expand context, keyboard nav, ignore-whitespace.

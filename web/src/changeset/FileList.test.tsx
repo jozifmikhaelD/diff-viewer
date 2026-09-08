@@ -2,7 +2,14 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { FileChange } from "../api";
+import { useState } from "react";
 import { FileList } from "./FileList";
+
+type P = Omit<Parameters<typeof FileList>[0], "filter" | "onFilterChange">;
+function Filtered(props: P) {
+  const [filter, setFilter] = useState("");
+  return <FileList {...props} filter={filter} onFilterChange={setFilter} />;
+}
 
 const files: FileChange[] = [
   { path: "src/utils.ts", oldPath: "src/util.ts", status: "R", similarity: 64, additions: 1, deletions: 1, binary: false },
@@ -15,7 +22,7 @@ const files: FileChange[] = [
 
 describe("FileList", () => {
   it("renders a tree with directory totals and file annotations", () => {
-    render(<FileList files={files} selectedPath={null} onSelect={() => {}} view="tree" onViewChange={() => {}} />);
+    render(<Filtered files={files} selectedPath={null} onSelect={() => {}} view="tree" onViewChange={() => {}} />);
     const items = screen.getAllByRole("treeitem");
     const dirs = items.filter((i) => i.classList.contains("dir-item")).map((i) => within(i).getByText(/^(assets|lib|src|vendor)$/).textContent);
     expect(dirs).toEqual(["assets", "lib", "src", "vendor"]);
@@ -32,20 +39,20 @@ describe("FileList", () => {
 
   it("collapses directories and switches to flat view", async () => {
     const onViewChange = vi.fn();
-    const { rerender } = render(<FileList files={files} selectedPath={null} onSelect={() => {}} view="tree" onViewChange={onViewChange} />);
+    const { rerender } = render(<Filtered files={files} selectedPath={null} onSelect={() => {}} view="tree" onViewChange={onViewChange} />);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /^src/ }));
     expect(screen.queryByText("app.ts")).not.toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: "Flat" }));
     expect(onViewChange).toHaveBeenCalledWith("flat");
-    rerender(<FileList files={files} selectedPath={null} onSelect={() => {}} view="flat" onViewChange={onViewChange} />);
+    rerender(<Filtered files={files} selectedPath={null} onSelect={() => {}} view="flat" onViewChange={onViewChange} />);
     expect(screen.getAllByRole("treeitem")).toHaveLength(6);
     expect(screen.getAllByText("src/")).toHaveLength(2);
   });
 
   it("filters, selects, and shows empty states", async () => {
     const onSelect = vi.fn();
-    render(<FileList files={files} selectedPath="src/app.ts" onSelect={onSelect} view="flat" onViewChange={() => {}} />);
+    render(<Filtered files={files} selectedPath="src/app.ts" onSelect={onSelect} view="flat" onViewChange={() => {}} />);
     expect(screen.getByRole("treeitem", { selected: true })).toHaveAttribute("data-path", "src/app.ts");
     const user = userEvent.setup();
     await user.type(screen.getByRole("searchbox"), "util");
@@ -58,7 +65,7 @@ describe("FileList", () => {
   });
 
   it("shows the no-changes state", () => {
-    render(<FileList files={[]} selectedPath={null} onSelect={() => {}} view="tree" onViewChange={() => {}} />);
+    render(<Filtered files={[]} selectedPath={null} onSelect={() => {}} view="tree" onViewChange={() => {}} />);
     expect(screen.getByText("No changes.")).toBeInTheDocument();
   });
 });

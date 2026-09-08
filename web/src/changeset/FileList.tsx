@@ -6,6 +6,8 @@ export type FileView = "tree" | "flat";
 
 interface Props {
   files: FileChange[];
+  filter: string;
+  onFilterChange: (f: string) => void;
   selectedPath: string | null;
   onSelect: (path: string) => void;
   view: FileView;
@@ -23,8 +25,7 @@ const STATUS_LABEL: Record<FileStatus, string> = {
   "?": "untracked",
 };
 
-export function FileList({ files, selectedPath, onSelect, view, onViewChange }: Props) {
-  const [filter, setFilter] = useState("");
+export function FileList({ files, filter, onFilterChange, selectedPath, onSelect, view, onViewChange }: Props) {
   const visible = useMemo(() => files.filter((f) => matchesFilter(f, filter)), [files, filter]);
   const maxChurn = useMemo(() => Math.max(1, ...files.map((f) => f.additions + f.deletions)), [files]);
   const tree = useMemo(() => (view === "tree" ? buildTree(visible) : []), [view, visible]);
@@ -37,7 +38,7 @@ export function FileList({ files, selectedPath, onSelect, view, onViewChange }: 
           placeholder="Filter files…"
           aria-label="Filter files"
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+          onChange={(e) => onFilterChange(e.target.value)}
         />
         <div className="segmented" role="radiogroup" aria-label="File view">
           {(["tree", "flat"] as FileView[]).map((v) => (

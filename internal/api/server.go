@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -44,6 +45,7 @@ func New(repo *git.Repo, static fs.FS, version string) *Server {
 	s.mux.HandleFunc("GET /api/repo", s.handleRepo)
 	s.mux.HandleFunc("GET /api/log", s.handleLog)
 	s.mux.HandleFunc("GET /api/changeset", s.handleChangeset)
+	s.mux.HandleFunc("GET /api/diff", s.handleDiff)
 	s.mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "unknown api route")
 	})
@@ -267,9 +269,9 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 // writeGitError maps git-layer errors to HTTP statuses.
 func writeGitError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, errUnknownWorktree), errors.Is(err, git.ErrBadRef), errors.Is(err, git.ErrBadMode):
+	case errors.Is(err, errUnknownWorktree), errors.Is(err, git.ErrBadRef), errors.Is(err, git.ErrBadMode), errors.Is(err, git.ErrBadSelection):
 		writeError(w, http.StatusBadRequest, err.Error())
-	case errors.Is(err, git.ErrNotRepo):
+	case errors.Is(err, git.ErrNotRepo), errors.Is(err, os.ErrNotExist):
 		writeError(w, http.StatusNotFound, err.Error())
 	default:
 		var gerr *git.Error

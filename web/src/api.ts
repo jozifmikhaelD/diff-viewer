@@ -153,3 +153,52 @@ export function changesetURL(wt: string, sel: ChangesetSelector): string {
 export const changesetApi = {
   changeset: (wt: string, sel: ChangesetSelector) => getJSON<Changeset>(changesetURL(wt, sel)),
 };
+
+export interface DiffLine {
+  t: " " | "+" | "-";
+  s: string;
+  o?: number;
+  n?: number;
+  nonl?: boolean;
+}
+
+export interface Hunk {
+  oldStart: number;
+  oldLines: number;
+  newStart: number;
+  newLines: number;
+  header?: string;
+  lines: DiffLine[];
+}
+
+export interface FileDiff {
+  path: string;
+  oldPath?: string;
+  status: FileStatus;
+  binary: boolean;
+  submodule?: boolean;
+  hunks: Hunk[];
+  old: string[] | null;
+  new: string[] | null;
+  hasOld: boolean;
+  hasNew: boolean;
+  truncated: boolean;
+  oldSize: number;
+  newSize: number;
+}
+
+export interface DiffOptions {
+  context?: number;
+  ignoreWhitespace?: boolean;
+}
+
+export function diffURL(wt: string, sel: ChangesetSelector, path: string, oldPath: string | undefined, opts: DiffOptions = {}): string {
+  const base = changesetURL(wt, sel).replace("/api/changeset", "/api/diff");
+  const extra = qs({ path, oldPath, context: opts.context, ws: opts.ignoreWhitespace ? 1 : undefined }).slice(1);
+  return `${base}&${extra}`;
+}
+
+export const diffApi = {
+  file: (wt: string, sel: ChangesetSelector, path: string, oldPath: string | undefined, opts?: DiffOptions) =>
+    getJSON<FileDiff>(diffURL(wt, sel, path, oldPath, opts)),
+};

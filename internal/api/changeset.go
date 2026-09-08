@@ -1,7 +1,9 @@
 package api
 
 import (
+	"errors"
 	"net/http"
+	"net/url"
 
 	"void/internal/git"
 )
@@ -12,11 +14,22 @@ type ChangesetResponse struct {
 	*git.Changeset
 }
 
-// handleChangeset serves GET /api/changeset with exactly one selector:
+// selectionFromQuery reads the shared selector params:
 //
 //	?commit=<rev>
 //	?from=<rev>&to=<rev>[&mergeBase=1]
 //	?worktree=staged|unstaged|untracked|all
+func selectionFromQuery(q url.Values) git.Selection {
+	mb := q.Get("mergeBase")
+	return git.Selection{
+		Commit:    q.Get("commit"),
+		From:      q.Get("from"),
+		To:        q.Get("to"),
+		MergeBase: mb == "1" || mb == "true",
+		Worktree:  git.WorktreeMode(q.Get("worktree")),
+	}
+}
+
 func (s *Server) handleChangeset(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	repo, err := s.repoFor(ctx, r)
@@ -24,41 +37,47 @@ func (s *Server) handleChangeset(w http.ResponseWriter, r *http.Request) {
 		writeGitError(w, err)
 		return
 	}
-	q := r.URL.Query()
-	commit, from, to, wt := q.Get("commit"), q.Get("from"), q.Get("to"), q.Get("worktree")
-	selectors := 0
-	for _, set := range []bool{commit != "", from != "" || to != "", wt != ""} {
-		if set {
-			selectors++
-		}
-	}
-	if selectors != 1 {
-		writeError(w, http.StatusBadRequest, "specify exactly one of commit, from+to, or worktree")
-		return
-	}
-	var (
-		cs   *git.Changeset
-		kind string
-	)
-	switch {
-	case commit != "":
-		kind, cs, err = "commit", nil, nil
-		cs, err = repo.DiffCommit(ctx, commit)
-	case wt != "":
-		kind = "worktree"
-		cs, err = repo.DiffWorktree(ctx, git.WorktreeMode(wt))
-	default:
-		if from == "" || to == "" {
-			writeError(w, http.StatusBadRequest, "range needs both from and to")
-			return
-		}
-		kind = "range"
-		mb := q.Get("mergeBase")
-		cs, err = repo.DiffRange(ctx, from, to, mb == "1" || mb == "true")
-	}
+	sel := selectionFromQuery(r.URL.Query())
+	cs, err := repo.Summary(ctx, sel)
 	if err != nil {
 		writeGitError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, ChangesetResponse{Kind: kind, Changeset: cs})
+	writeJSON(w, http.StatusOK, ChangesetResponse{Kind: sel.Kind(), Changeset: cs})
+}
+
+// handleDiff serves GET /api/diff with the selector params plus
+// path=, oldPath= (renames), context= (0-100, default 3), ws=1 (ignore whitespace).
+func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	repo, err := s.repoFor(ctx, r)
+	if err != nil {
+		writeGitError(w, err)
+		return
+	}
+	q := r.URL.Query()
+	path := q.Get("path")
+	if path == "" {
+		writeError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+	context, err := intParam(q.Get("context"), git.DefaultContext, 0, 100)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "context: "+err.Error())
+		return
+	}
+	ws := q.Get("ws")
+	fd, err := repo.FileDiff(ctx, selectionFromQuery(q), path, q.Get("oldPath"), git.FileDiffOptions{
+		Context:          context,
+		IgnoreWhitespace: ws == "1" || ws == "true",
+	})
+	if err != nil {
+		if errors.Is(err, git.ErrBadRef) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeGitError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, fd)
 }

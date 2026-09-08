@@ -74,101 +74,43 @@ var ErrBadMode = errors.New("invalid worktree mode")
 
 const submoduleMode = "160000"
 
-// DiffCommit summarises a commit against its first parent (or the empty tree
-// for a root commit).
-func (r *Repo) DiffCommit(ctx context.Context, rev string) (*Changeset, error) {
-	if err := checkRev(rev); err != nil {
-		return nil, err
-	}
-	out, err := r.Run(ctx, "rev-list", "--parents", "-n", "1", rev, "--")
+// Summary lists the files changed by sel with per-file line counts.
+func (r *Repo) Summary(ctx context.Context, sel Selection) (*Changeset, error) {
+	t, err := r.resolve(ctx, sel)
 	if err != nil {
 		return nil, err
 	}
-	ids := strings.Fields(string(out))
-	if len(ids) == 0 {
-		return nil, &Error{Args: []string{"rev-list", rev}, Stderr: "fatal: bad revision '" + rev + "'", Err: errors.New("no such commit")}
-	}
-	sha := ids[0]
-	from := ""
-	if len(ids) > 1 {
-		from = ids[1]
-	} else if from, err = r.EmptyTree(ctx); err != nil {
-		return nil, err
-	}
-	files, err := r.diffFiles(ctx, from, sha)
-	if err != nil {
-		return nil, err
-	}
-	return newChangeset(from, sha, files), nil
-}
-
-// DiffRange summarises from..to. With mergeBase it uses from...to semantics
-// (changes on to since it diverged from from).
-func (r *Repo) DiffRange(ctx context.Context, from, to string, mergeBase bool) (*Changeset, error) {
-	if err := checkRev(from); err != nil {
-		return nil, err
-	}
-	if err := checkRev(to); err != nil {
-		return nil, err
-	}
-	toSHA, err := r.ResolveCommit(ctx, to)
-	if err != nil {
-		return nil, err
-	}
-	var fromSHA string
-	if mergeBase {
-		out, err := r.Run(ctx, "merge-base", from, toSHA)
-		if err != nil {
-			return nil, err
-		}
-		fromSHA = strings.TrimSpace(string(out))
-	} else if fromSHA, err = r.ResolveCommit(ctx, from); err != nil {
-		return nil, err
-	}
-	files, err := r.diffFiles(ctx, fromSHA, toSHA)
-	if err != nil {
-		return nil, err
-	}
-	return newChangeset(fromSHA, toSHA, files), nil
-}
-
-// DiffWorktree summarises uncommitted changes.
-func (r *Repo) DiffWorktree(ctx context.Context, mode WorktreeMode) (*Changeset, error) {
-	head, err := r.ResolveCommit(ctx, "HEAD")
-	if err != nil {
-		// Unborn branch: compare against the empty tree.
-		if head, err = r.EmptyTree(ctx); err != nil {
+	var files []FileChange
+	if !t.onlyUntracked {
+		if files, err = r.diffFiles(ctx, t.diffArgs...); err != nil {
 			return nil, err
 		}
 	}
-	var (
-		files []FileChange
-		from  string
-	)
-	switch mode {
-	case ModeStaged:
-		from = head
-		files, err = r.diffFiles(ctx, "--cached", head)
-	case ModeUnstaged:
-		files, err = r.diffFiles(ctx)
-	case ModeAll:
-		from = head
-		files, err = r.diffFiles(ctx, head)
-	case ModeUntracked:
-	default:
-		return nil, fmt.Errorf("%w: %q", ErrBadMode, mode)
-	}
-	if err != nil {
-		return nil, err
-	}
-	if mode == ModeAll || mode == ModeUntracked {
+	if t.withUntracked {
 		untracked, err := r.untrackedFiles(ctx)
 		if err != nil {
 			return nil, err
 		}
 		files = append(files, untracked...)
 	}
-	return newChangeset(from, "", files), nil
+	return newChangeset(t.from, t.to, files), nil
+}
+
+// DiffCommit summarises a commit against its first parent (or the empty tree
+// for a root commit).
+func (r *Repo) DiffCommit(ctx context.Context, rev string) (*Changeset, error) {
+	return r.Summary(ctx, Selection{Commit: rev})
+}
+
+// DiffRange summarises from..to. With mergeBase it uses from...to semantics
+// (changes on to since it diverged from from).
+func (r *Repo) DiffRange(ctx context.Context, from, to string, mergeBase bool) (*Changeset, error) {
+	return r.Summary(ctx, Selection{From: from, To: to, MergeBase: mergeBase})
+}
+
+// DiffWorktree summarises uncommitted changes.
+func (r *Repo) DiffWorktree(ctx context.Context, mode WorktreeMode) (*Changeset, error) {
+	return r.Summary(ctx, Selection{Worktree: mode})
 }
 
 // ResolveCommit turns a revision into a full commit SHA.

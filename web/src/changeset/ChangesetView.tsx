@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, changesetApi, type ChangesetSelector, type Commit, type Worktree, type WorktreeMode } from "../api";
+import { DiffView, type DiffMode } from "../diff/DiffView";
 import type { Selection } from "../history/CommitList";
 import { relativeTime } from "../lib/time";
 import { FileList, type FileView } from "./FileList";
 import { StatsBanner } from "./StatsBanner";
-import { languageBreakdown } from "./summary";
+import { buildTree, languageBreakdown, matchesFilter, type TreeNode } from "./summary";
 
 interface Props {
   worktree: Worktree;
@@ -21,26 +22,32 @@ const MODES: { value: WorktreeMode; label: string }[] = [
   { value: "untracked", label: "Untracked" },
 ];
 
-const VIEW_KEY = "void.fileView";
-function loadView(): FileView {
-  try {
-    return localStorage.getItem(VIEW_KEY) === "flat" ? "flat" : "tree";
-  } catch {
-    return "tree";
-  }
+function usePersisted<T extends string>(key: string, fallback: T, valid: readonly T[]): [T, (v: T) => void] {
+  const [value, setValue] = useState<T>(() => {
+    try {
+      const v = localStorage.getItem(key) as T | null;
+      return v && valid.includes(v) ? v : fallback;
+    } catch {
+      return fallback;
+    }
+  });
+  const set = (v: T) => {
+    setValue(v);
+    try {
+      localStorage.setItem(key, v);
+    } catch {
+      // storage unavailable; the choice still applies for this session
+    }
+  };
+  return [value, set];
 }
 
 export function ChangesetView({ worktree, selection, selectedPath, onSelectPath }: Props) {
   const [mode, setMode] = useState<WorktreeMode>("all");
-  const [view, setView] = useState<FileView>(loadView);
-  const changeView = (v: FileView) => {
-    setView(v);
-    try {
-      localStorage.setItem(VIEW_KEY, v);
-    } catch {
-      // storage unavailable; view is still applied for this session
-    }
-  };
+  const [view, setView] = usePersisted<FileView>("void.fileView", "tree", ["tree", "flat"]);
+  const [diffMode, setDiffMode] = usePersisted<DiffMode>("void.diffMode", "unified", ["unified", "split"]);
+  const [ws, setWs] = usePersisted<"0" | "1">("void.ignoreWhitespace", "0", ["0", "1"]);
+  const [filter, setFilter] = useState("");
 
   const selector: ChangesetSelector = selection.kind === "commit" ? { commit: selection.sha } : { worktree: mode };
   const changeset = useQuery({
@@ -55,6 +62,46 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath 
     select: (page) => page.commits[0],
     staleTime: Infinity,
   });
+
+  const files = useMemo(() => changeset.data?.files ?? [], [changeset.data]);
+  // Files in the order they are displayed (tree order collapses dirs first), so
+  // keyboard navigation and the default selection follow what the user sees.
+  const visible = useMemo(() => {
+    const matching = files.filter((f) => matchesFilter(f, filter));
+    if (view === "flat") return matching;
+    const out: typeof matching = [];
+    const walk = (nodes: TreeNode[]) => {
+      for (const n of nodes) {
+        if (n.kind === "file") out.push(n.file);
+        else walk(n.children);
+      }
+    };
+    walk(buildTree(matching));
+    return out;
+  }, [files, filter, view]);
+  // The first visible file is shown until the user picks one.
+  const current = files.find((f) => f.path === selectedPath) ?? visible[0];
+
+  // n / p move between files, "/" focuses the filter.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      const typing = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT");
+      if (e.key === "/" && !typing) {
+        e.preventDefault();
+        document.querySelector<HTMLInputElement>('input[aria-label="Filter files"]')?.focus();
+        return;
+      }
+      if (typing || (e.key !== "n" && e.key !== "p") || visible.length === 0) return;
+      e.preventDefault();
+      const idx = current ? visible.findIndex((f) => f.path === current.path) : -1;
+      const next = e.key === "n" ? Math.min(idx + 1, visible.length - 1) : Math.max(idx - 1, 0);
+      onSelectPath(visible[next].path);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [visible, current, onSelectPath]);
 
   return (
     <div className="changeset">
@@ -82,7 +129,33 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath 
       {changeset.data && (
         <>
           <StatsBanner totals={changeset.data.totals} languages={languageBreakdown(changeset.data.files)} />
-          <FileList files={changeset.data.files} selectedPath={selectedPath} onSelect={onSelectPath} view={view} onViewChange={changeView} />
+          <div className="changeset-body">
+            <FileList
+              files={changeset.data.files}
+              filter={filter}
+              onFilterChange={setFilter}
+              selectedPath={current?.path ?? null}
+              onSelect={onSelectPath}
+              view={view}
+              onViewChange={setView}
+            />
+            {current ? (
+              <DiffView
+                key={`${current.path}:${current.oldPath ?? ""}`}
+                worktree={worktree}
+                selector={selector}
+                file={current}
+                mode={diffMode}
+                onModeChange={setDiffMode}
+                ignoreWhitespace={ws === "1"}
+                onIgnoreWhitespaceChange={(v) => setWs(v ? "1" : "0")}
+              />
+            ) : (
+              <div className="diff diff-empty">
+                <p className="empty">{files.length === 0 ? "Nothing to show." : "No file matches the filter."}</p>
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>
