@@ -758,3 +758,84 @@ button.ghost.on {
   color: var(--accent);
   border-color: var(--accent);
 }
+
+/* ---- dependency map ---- */
+.deps {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.deps-summary {
+  color: var(--muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.deps-toolbar input[type="range"] {
+  width: 70px;
+  margin: 0 0.3rem;
+}
+.deps-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 1px) 0 0 / 22px 22px,
+    var(--bg);
+}
+.deps-canvas svg {
+  display: block;
+  cursor: grab;
+}
+.dep-edge {
+  stroke: var(--muted);
+  stroke-opacity: 0.6;
+  stroke-width: 1.2;
+}
+g.node.clickable {
+  cursor: pointer;
+}
+g.node.neighbour {
+  opacity: 0.7;
+}
+g.node.selected circle {
+  stroke: var(--fg);
+  stroke-width: 3;
+}
+g.node:hover circle {
+  filter: brightness(1.15);
+}
+.dep-label {
+  font-size: 11px;
+  fill: var(--fg);
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+g.node.neighbour .dep-label {
+  fill: var(--muted);
+}
+.deps-legend {
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.8rem;
+  font-size: 0.75rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-width: 60%;
+}
+.deps-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}

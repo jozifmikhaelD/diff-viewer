@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { api, changesetApi, type ChangesetSelector, type Commit, type Worktree, type WorktreeMode } from "../api";
 import { DiffView, type DiffMode } from "../diff/DiffView";
+import { DepsMap } from "../map/DepsMap";
 import type { Selection } from "../history/CommitList";
 import { relativeTime } from "../lib/time";
 import { FileList, type FileView } from "./FileList";
@@ -49,6 +50,7 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
   const [diffMode, setDiffMode] = usePersisted<DiffMode>("void.diffMode", "unified", ["unified", "split"]);
   const [ws, setWs] = usePersisted<"0" | "1">("void.ignoreWhitespace", "0", ["0", "1"]);
   const [filter, setFilter] = useState("");
+  const [pane, setPane] = useState<"diff" | "map">("diff");
 
   const selector: ChangesetSelector =
     selection.kind === "commit"
@@ -99,6 +101,11 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
         document.querySelector<HTMLInputElement>('input[aria-label="Filter files"]')?.focus();
         return;
       }
+      if (e.key === "m" && !typing) {
+        e.preventDefault();
+        setPane((p) => (p === "diff" ? "map" : "diff"));
+        return;
+      }
       if (typing || (e.key !== "n" && e.key !== "p") || visible.length === 0) return;
       e.preventDefault();
       const idx = current ? visible.findIndex((f) => f.path === current.path) : -1;
@@ -136,7 +143,15 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
       )}
       {changeset.data && (
         <>
-          <StatsBanner totals={changeset.data.totals} languages={languageBreakdown(changeset.data.files)} />
+          <StatsBanner totals={changeset.data.totals} languages={languageBreakdown(changeset.data.files)}>
+            <div className="segmented" role="radiogroup" aria-label="Pane">
+              {(["diff", "map"] as const).map((p) => (
+                <button key={p} type="button" role="radio" aria-checked={pane === p} className={pane === p ? "on" : ""} onClick={() => setPane(p)} title={p === "map" ? "Dependency map (m)" : "Diff (m)"}>
+                  {p === "diff" ? "Diff" : "Map"}
+                </button>
+              ))}
+            </div>
+          </StatsBanner>
           <div className="changeset-body">
             <FileList
               files={changeset.data.files}
@@ -147,7 +162,18 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
               view={view}
               onViewChange={setView}
             />
-            {current ? (
+            {pane === "map" ? (
+              <DepsMap
+                worktree={worktree}
+                selector={selector}
+                changedPaths={new Set(files.map((f) => f.path))}
+                selectedPath={current?.path ?? null}
+                onSelectPath={(p) => {
+                  onSelectPath(p);
+                  setPane("diff");
+                }}
+              />
+            ) : current ? (
               <DiffView
                 key={`${current.path}:${current.oldPath ?? ""}`}
                 worktree={worktree}

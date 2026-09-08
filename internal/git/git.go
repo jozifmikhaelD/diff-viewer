@@ -45,6 +45,11 @@ type Runner struct {
 
 // Run executes `git args...` and returns stdout. Stderr is folded into the error.
 func (r Runner) Run(ctx context.Context, args ...string) ([]byte, error) {
+	return r.RunInput(ctx, nil, args...)
+}
+
+// RunInput is Run with data piped to git's stdin.
+func (r Runner) RunInput(ctx context.Context, input []byte, args ...string) ([]byte, error) {
 	timeout := r.Timeout
 	if timeout == 0 {
 		timeout = DefaultTimeout
@@ -63,6 +68,9 @@ func (r Runner) Run(ctx context.Context, args ...string) ([]byte, error) {
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	if input != nil {
+		cmd.Stdin = bytes.NewReader(input)
+	}
 	if err := cmd.Run(); err != nil {
 		gerr := &Error{Args: args, Stderr: stderr.String(), Err: err}
 		if strings.Contains(gerr.Stderr, "not a git repository") {
@@ -121,6 +129,11 @@ func Open(ctx context.Context, path string) (*Repo, error) {
 // Run executes a git command rooted at the worktree.
 func (r *Repo) Run(ctx context.Context, args ...string) ([]byte, error) {
 	return r.run.Run(ctx, args...)
+}
+
+// RunInput executes a git command with stdin data.
+func (r *Repo) RunInput(ctx context.Context, input []byte, args ...string) ([]byte, error) {
+	return r.run.RunInput(ctx, input, args...)
 }
 
 // IsLinkedWorktree reports whether this repo was opened via a linked worktree.

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	"void/internal/deps"
 	"void/internal/git"
 	"void/internal/watch"
 )
@@ -32,7 +33,8 @@ type Server struct {
 	version string
 	mux     *http.ServeMux
 
-	bus *watch.Bus // nil disables /api/events
+	bus     *watch.Bus // nil disables /api/events
+	indexer *deps.Indexer
 
 	mu    sync.Mutex
 	repos map[string]*git.Repo // opened worktrees by path
@@ -43,7 +45,8 @@ type Server struct {
 func New(repo *git.Repo, static fs.FS, version string, bus *watch.Bus) *Server {
 	s := &Server{
 		repo: repo, static: static, version: version, mux: http.NewServeMux(), bus: bus,
-		repos: map[string]*git.Repo{repo.Root: repo},
+		repos:   map[string]*git.Repo{repo.Root: repo},
+		indexer: deps.NewIndexer(8),
 	}
 	s.mux.HandleFunc("GET /api/health", s.handleHealth)
 	s.mux.HandleFunc("GET /api/repo", s.handleRepo)
@@ -51,6 +54,7 @@ func New(repo *git.Repo, static fs.FS, version string, bus *watch.Bus) *Server {
 	s.mux.HandleFunc("GET /api/changeset", s.handleChangeset)
 	s.mux.HandleFunc("GET /api/diff", s.handleDiff)
 	s.mux.HandleFunc("GET /api/events", s.handleEvents)
+	s.mux.HandleFunc("GET /api/deps", s.handleDeps)
 	s.mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "unknown api route")
 	})

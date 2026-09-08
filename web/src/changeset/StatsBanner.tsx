@@ -4,11 +4,12 @@ import type { LanguageStat } from "./summary";
 interface Props {
   totals: Totals;
   languages: LanguageStat[];
+  children?: React.ReactNode;
 }
 
 const fmt = new Intl.NumberFormat("en");
 
-export function StatsBanner({ totals, languages }: Props) {
+export function StatsBanner({ totals, languages, children }: Props) {
   const churn = totals.additions + totals.deletions;
   const addPct = churn ? (totals.additions / churn) * 100 : 0;
   return (
@@ -40,6 +41,12 @@ export function StatsBanner({ totals, languages }: Props) {
           ))}
           {languages.length > 6 && <li className="lang-chip lang-more">+{languages.length - 6} more</li>}
         </ul>
+      )}
+      {children && (
+        <>
+          <span className="spacer" />
+          {children}
+        </>
       )}
     </section>
   );

@@ -79,6 +79,32 @@ describe("ChangesetView", () => {
     expect(calls).toContain("/api/changeset?wt=%2Fwork%2Frepo&worktree=staged");
   });
 
+  it("toggles to the dependency map with m and returns to the diff when a node is clicked", async () => {
+    mockFetch({
+      "/api/changeset": { body: changeset },
+      "/api/log": { body: { commits: [commits[3]], hasMore: false, skip: 0, limit: 1 } },
+      "/api/diff": { body: emptyDiff },
+      "/api/deps": {
+        body: {
+          nodes: [{ path: "README.md", changed: true, status: "M", additions: 3, deletions: 0, depth: 0 }],
+          edges: [],
+          truncated: false,
+          indexed: 1,
+        },
+      },
+    });
+    const onSelectPath = vi.fn();
+    renderWithQuery(<ChangesetView worktree={worktreeMain} selection={{ kind: "commit", sha: "c3c3c3c3" }} selectedPath={null} onSelectPath={onSelectPath} />);
+    await screen.findByRole("region", { name: "Diff for lib/helper.py" });
+    fireEvent.keyDown(window, { key: "m" });
+    expect(await screen.findByRole("region", { name: "Dependency map" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /Diff for/ })).not.toBeInTheDocument();
+    const map = screen.getByRole("region", { name: "Dependency map" });
+    await userEvent.setup().click(await within(map).findByRole("button", { name: /README\.md/ }));
+    expect(onSelectPath).toHaveBeenCalledWith("README.md");
+    expect(await screen.findByRole("region", { name: /Diff for/ })).toBeInTheDocument();
+  });
+
   it("reports selection and errors", async () => {
     mockFetch({ "/api/changeset": { status: 404, body: { error: "bad revision 'zzz'" } }, "/api/log": { body: { commits: [], hasMore: false, skip: 0, limit: 1 } } });
     renderWithQuery(<ChangesetView worktree={worktreeMain} selection={{ kind: "commit", sha: "zzz" }} selectedPath={null} onSelectPath={() => {}} />);

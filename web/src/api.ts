@@ -202,3 +202,29 @@ export const diffApi = {
   file: (wt: string, sel: ChangesetSelector, path: string, oldPath: string | undefined, opts?: DiffOptions) =>
     getJSON<FileDiff>(diffURL(wt, sel, path, oldPath, opts)),
 };
+
+export interface DepNode {
+  path: string;
+  changed: boolean;
+  status?: FileStatus;
+  additions: number;
+  deletions: number;
+  depth: number;
+}
+
+export interface DepEdge {
+  from: string;
+  to: string;
+}
+
+export interface DepGraph {
+  nodes: DepNode[];
+  edges: DepEdge[];
+  truncated: boolean;
+  indexed: number;
+}
+
+export const depsApi = {
+  graph: (wt: string, sel: ChangesetSelector, depth: number) =>
+    getJSON<DepGraph>(`${changesetURL(wt, sel).replace("/api/changeset", "/api/deps")}&depth=${depth}`),
+};

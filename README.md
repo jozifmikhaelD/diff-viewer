@@ -5,7 +5,7 @@ working tree and get totals, the file list, readable diffs, and a dependency map
 of the changed files. Works with any repo, inside dev containers, and across
 worktrees.
 
-Status: **M4 (ranges + live updates)**: commits, shift-click ranges, branch-vs-base, and the working tree, with a file tree and unified or side-by-side diffs (word highlights, expandable context, whitespace toggle, keyboard navigation). Edits and commits appear live via a file watcher. The dependency map lands in M5. See [docs/plan.md](docs/plan.md) for the press release,
+Status: **M5 (dependency map)**: commits, shift-click ranges, branch-vs-base, and the working tree, with a file tree, unified or side-by-side diffs, live updates, and a dependency map of changed files plus their import neighbours (TypeScript/JavaScript, Python, Go, Java/Kotlin). Press `m` to toggle the map. M6 polish is next. See [docs/plan.md](docs/plan.md) for the press release,
 requirements, and milestone breakdown.
 
 ## Run

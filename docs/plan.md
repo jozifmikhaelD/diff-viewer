@@ -148,7 +148,7 @@ void (Go binary)
 - `GET /api/log?wt=&ref=&skip=&limit=&author=&grep=` → commits with parents and refs; lane layout is computed client-side (pure function, continues across pages)
 - `GET /api/changeset?wt=&(commit=|from=&to=[&mergeBase=1]|worktree=staged|unstaged|untracked|all)` → files (status, rename, binary, submodule, +/−) + totals; language breakdown computed client-side
 - `GET /api/diff?wt=&<selector>&path=&oldPath=&context=&ws=1` → structured hunks + both full sides (≤2 MiB / 20k lines) so the client renders side-by-side and expands context locally
-- `GET /api/deps?wt=&rev=&paths=...&depth=1` → nodes + edges
+- `GET /api/deps?wt=&<selector>&depth=0..2` → nodes (changed + neighbours) and import edges; indexes are keyed by tree hash (LRU 8), the working tree overlays changed files on HEAD, and deleted/renamed files draw edges from the "from" index
 - `GET /api/events` → SSE `change` events `{worktree, kind: worktree|refs}` from an fsnotify watcher per worktree (dirs derived from `git ls-files` so ignored trees cost nothing; polls `git status` when the directory count exceeds the fd budget); `-no-watch` disables
 
 **Frontend libs (pinned when scaffolding):** React, Vite, TanStack Query, `@git-diff-view/react` or `react-diff-view` for rendering, Shiki for highlighting, `d3-force` or `cytoscape.js` for the map, `react-virtual` for lists.
@@ -197,7 +197,7 @@ Each milestone is independently demoable. Estimates are rough engineering days a
 - **Tests:** merge-base preset and range-normalisation unit tests; watcher tests (debounce, ignore `.git` internals except refs, worktree-scoped events); SSE endpoint test; Playwright flow: mutate fixture working tree → UI updates without reload; shift-click range flow.
 - **Demo:** edit a file in the editor, see void update.
 
-### M5 — Dependency map (5d)
+### M5 — Dependency map (5d) ✅ 2026-09-08
 - `internal/deps`: tree walk at rev, import extraction per language, resolver to repo paths, SHA-keyed cache, incremental update for working tree.
 - API `/api/deps`.
 - UI: force-directed graph, status colouring, neighbour muting, depth slider, click-to-scroll, directory clustering.
