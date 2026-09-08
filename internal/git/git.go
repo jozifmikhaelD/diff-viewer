@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -83,6 +84,10 @@ type Repo struct {
 	CommonDir string
 
 	run Runner
+
+	emptyTreeOnce sync.Once
+	emptyTree     string
+	emptyTreeErr  error
 }
 
 // Open resolves the repository containing path.

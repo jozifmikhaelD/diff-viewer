@@ -29,12 +29,13 @@ describe("App", () => {
       "/api/health": { body: { ok: true, version: "dev" } },
       "/api/repo": { body: repoInfo },
       "/api/log": { body: { commits: [], hasMore: false, skip: 0, limit: 200 } },
+      "/api/changeset": { body: { kind: "worktree", from: "", to: "", files: [], totals: { files: 0, additions: 0, deletions: 0 } } },
     });
     renderWithQuery(<App />);
     const select = await screen.findByRole("combobox");
     const user = userEvent.setup();
     await user.click(screen.getByText("Working tree"));
-    expect(screen.getByText(/Working tree selected/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Working tree" })).toBeInTheDocument();
     await user.selectOptions(select, "/work/wt-feature");
     expect(select).toHaveValue("/work/wt-feature");
     expect(await screen.findByText(/Select a commit/)).toBeInTheDocument();

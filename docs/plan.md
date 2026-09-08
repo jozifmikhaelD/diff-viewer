@@ -146,7 +146,7 @@ void (Go binary)
 **Key API endpoints**
 - `GET /api/repo` → root, worktrees, default branch, HEAD per worktree
 - `GET /api/log?wt=&ref=&skip=&limit=&author=&grep=` → commits with parents and refs; lane layout is computed client-side (pure function, continues across pages)
-- `GET /api/changeset?wt=&from=&to=|&mode=staged|unstaged|all` → stats + files
+- `GET /api/changeset?wt=&(commit=|from=&to=[&mergeBase=1]|worktree=staged|unstaged|untracked|all)` → files (status, rename, binary, submodule, +/−) + totals; language breakdown computed client-side
 - `GET /api/diff?wt=&from=&to=&path=` → hunks (structured, not raw text)
 - `GET /api/deps?wt=&rev=&paths=...&depth=1` → nodes + edges
 - `GET /api/events` → SSE stream (worktree changed, refs changed)
@@ -177,7 +177,7 @@ Each milestone is independently demoable. Estimates are rough engineering days a
 - **Tests:** `-z` log/worktree parser fixtures (merges, octopus, detached HEAD, tags); lane algorithm unit tests; API golden tests for `/api/repo` and `/api/log` (paging, worktree switch); component tests for commit list and switcher.
 - **Demo:** open any repo, scroll history, switch worktrees.
 
-### M2 — Changeset summary (2d)
+### M2 — Changeset summary (2d) ✅ 2026-09-08
 - `diff.go`: numstat + name-status for commit, range, and working-tree modes (staged/unstaged/untracked).
 - API `/api/changeset`.
 - UI: stats banner, file tree/flat toggle, status glyphs, +/− bars, filter.

@@ -17,7 +17,7 @@ test("history lists fixture commits with graph, refs and working-tree badges", a
   await expect(history.locator("svg.commit-graph").first()).toBeVisible();
 
   await history.getByText("c3: rename util").click();
-  await expect(page.getByRole("main")).toContainText("selected");
+  await expect(page.getByRole("main").getByRole("heading", { name: /c3: rename util/ })).toBeVisible();
 });
 
 test("switching worktree shows that worktree's HEAD and a clean working tree", async ({ page }) => {

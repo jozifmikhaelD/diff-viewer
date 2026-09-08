@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type Worktree } from "./api";
+import { ChangesetView } from "./changeset/ChangesetView";
 import { CommitList, type Selection } from "./history/CommitList";
 import { WorktreeSwitcher } from "./history/WorktreeSwitcher";
 
@@ -10,6 +11,7 @@ export default function App() {
 
   const [wtPath, setWtPath] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
 
   const worktrees = repo.data?.worktrees ?? [];
   const current: Worktree | undefined =
@@ -18,6 +20,11 @@ export default function App() {
   const switchWorktree = (path: string) => {
     setWtPath(path);
     setSelection(null);
+    setSelectedPath(null);
+  };
+  const select = (sel: Selection) => {
+    setSelection(sel);
+    setSelectedPath(null);
   };
 
   return (
@@ -40,16 +47,20 @@ export default function App() {
       {repo.data && current && (
         <div className="app-body">
           <aside className="sidebar">
-            <CommitList key={current.path} worktree={current} selection={selection} onSelect={setSelection} />
+            <CommitList key={current.path} worktree={current} selection={selection} onSelect={select} />
           </aside>
           <main className="content">
-            {selection === null && <p className="empty">Select a commit or the working tree to see its changes.</p>}
-            {selection?.kind === "commit" && (
-              <p className="empty">
-                Commit <code>{selection.sha.slice(0, 7)}</code> selected. Changeset view arrives in M2.
-              </p>
+            {selection === null ? (
+              <p className="empty">Select a commit or the working tree to see its changes.</p>
+            ) : (
+              <ChangesetView
+                key={`${current.path}:${selection.kind === "commit" ? selection.sha : "worktree"}`}
+                worktree={current}
+                selection={selection}
+                selectedPath={selectedPath}
+                onSelectPath={setSelectedPath}
+              />
             )}
-            {selection?.kind === "worktree" && <p className="empty">Working tree selected. Changeset view arrives in M2.</p>}
           </main>
         </div>
       )}

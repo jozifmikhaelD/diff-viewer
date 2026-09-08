@@ -101,3 +101,55 @@ export const api = {
   repo: () => getJSON<RepoInfo>("/api/repo"),
   log: (params: LogParams) => getJSON<LogPage>(`/api/log${qs(params)}`),
 };
+
+export type FileStatus = "A" | "M" | "D" | "R" | "C" | "T" | "U" | "?";
+
+export interface FileChange {
+  path: string;
+  oldPath?: string;
+  status: FileStatus;
+  similarity?: number;
+  additions: number;
+  deletions: number;
+  binary: boolean;
+  submodule?: boolean;
+  oldMode?: string;
+  newMode?: string;
+}
+
+export interface Totals {
+  files: number;
+  additions: number;
+  deletions: number;
+}
+
+export type WorktreeMode = "staged" | "unstaged" | "untracked" | "all";
+
+export type ChangesetSelector =
+  | { commit: string }
+  | { from: string; to: string; mergeBase?: boolean }
+  | { worktree: WorktreeMode };
+
+export interface Changeset {
+  kind: "commit" | "range" | "worktree";
+  from: string;
+  to: string;
+  files: FileChange[];
+  totals: Totals;
+}
+
+export function changesetURL(wt: string, sel: ChangesetSelector): string {
+  const params: Record<string, string | number | undefined> = { wt };
+  if ("commit" in sel) params.commit = sel.commit;
+  else if ("worktree" in sel) params.worktree = sel.worktree;
+  else {
+    params.from = sel.from;
+    params.to = sel.to;
+    if (sel.mergeBase) params.mergeBase = 1;
+  }
+  return `/api/changeset${qs(params)}`;
+}
+
+export const changesetApi = {
+  changeset: (wt: string, sel: ChangesetSelector) => getJSON<Changeset>(changesetURL(wt, sel)),
+};
