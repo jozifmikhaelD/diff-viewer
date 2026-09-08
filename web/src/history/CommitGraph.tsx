@@ -1,15 +1,14 @@
 import type { LaneRow } from "./lanes";
-import { laneColor } from "./lanes";
+import { clampLane, LANE_WIDTH, laneColor, MAX_LANES, ROW_HEIGHT } from "./lanes";
 
-export const LANE_WIDTH = 14;
-export const ROW_HEIGHT = 30;
 
 /** SVG for one row of the commit graph. */
 export function CommitGraph({ row, laneCount }: { row: LaneRow; laneCount: number }) {
-  const x = (lane: number) => lane * LANE_WIDTH + LANE_WIDTH / 2;
+  const x = (lane: number) => clampLane(lane) * LANE_WIDTH + LANE_WIDTH / 2;
   const cx = x(row.lane);
   const mid = ROW_HEIGHT / 2;
-  const width = Math.max(laneCount, row.width) * LANE_WIDTH;
+  const width = Math.min(MAX_LANES, Math.max(laneCount, row.width)) * LANE_WIDTH;
+  const overflow = row.lane >= MAX_LANES;
   return (
     <svg
       className="commit-graph"
@@ -18,8 +17,8 @@ export function CommitGraph({ row, laneCount }: { row: LaneRow; laneCount: numbe
       viewBox={`0 0 ${width} ${ROW_HEIGHT}`}
       aria-hidden="true"
     >
-      {row.through.map((lane) => (
-        <line key={`t${lane}`} x1={x(lane)} y1={0} x2={x(lane)} y2={ROW_HEIGHT} stroke={laneColor(lane)} strokeWidth={2} />
+      {dedupeByColumn(row.through).map((lane) => (
+        <line key={`t${lane}`} x1={x(lane)} y1={0} x2={x(lane)} y2={ROW_HEIGHT} stroke={laneColor(lane)} strokeWidth={2} opacity={lane >= MAX_LANES ? 0.35 : 1} />
       ))}
       {row.incoming.map((lane) => (
         <path
@@ -39,7 +38,18 @@ export function CommitGraph({ row, laneCount }: { row: LaneRow; laneCount: numbe
           strokeWidth={2}
         />
       ))}
-      <circle cx={cx} cy={mid} r={4} fill={laneColor(row.lane)} stroke="var(--bg)" strokeWidth={1.5} />
+      <circle cx={cx} cy={mid} r={4} fill={laneColor(row.lane)} stroke="var(--bg)" strokeWidth={1.5} opacity={overflow ? 0.6 : 1} />
     </svg>
   );
+}
+
+/** Keeps one lane per drawn column so squeezed lanes do not stack strokes. */
+function dedupeByColumn(lanes: number[]): number[] {
+  const seen = new Set<number>();
+  return lanes.filter((l) => {
+    const c = clampLane(l);
+    if (seen.has(c)) return false;
+    seen.add(c);
+    return true;
+  });
 }

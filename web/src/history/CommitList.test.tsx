@@ -99,6 +99,9 @@ describe("CommitList", () => {
     await waitFor(() => expect(calls.some((c) => c.includes("author=ann") && c.includes("grep=topic"))).toBe(true));
     await waitFor(() => expect(screen.queryByText("m1: merge topic")).not.toBeInTheDocument());
     expect(screen.getByText("t1: topic work")).toBeInTheDocument();
+    // filtered results are not a connected graph: dots instead of lanes
+    expect(document.querySelector("svg.commit-graph")).toBeNull();
+    expect(document.querySelector(".commit-dot")).not.toBeNull();
     await user.clear(screen.getByRole("searchbox", { name: "Search commits" }));
     await user.type(screen.getByRole("searchbox", { name: "Search commits" }), "c3c3c3c3");
     await waitFor(() => expect(calls.some((c) => c.includes("ref=c3c3c3c3"))).toBe(true));

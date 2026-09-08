@@ -1,5 +1,5 @@
 import type { Worktree } from "../api";
-import { ROW_HEIGHT } from "./CommitGraph";
+import { ROW_HEIGHT } from "./lanes";
 
 interface Props {
   worktree: Worktree;

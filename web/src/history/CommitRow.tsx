@@ -1,11 +1,13 @@
 import type { Commit, Ref } from "../api";
-import { CommitGraph, ROW_HEIGHT } from "./CommitGraph";
+import { CommitGraph } from "./CommitGraph";
+import { ROW_HEIGHT } from "./lanes";
 import type { LaneRow } from "./lanes";
 import { relativeTime } from "../lib/time";
 
 interface Props {
   commit: Commit;
-  lane: LaneRow;
+  /** Omitted when the list is filtered (not a connected graph): a plain dot is drawn instead. */
+  lane?: LaneRow;
   laneCount: number;
   selected: boolean;
   inRange?: boolean;
@@ -28,7 +30,7 @@ export function CommitRow({ commit, lane, laneCount, selected, inRange = false, 
       }}
       data-sha={commit.sha}
     >
-      <CommitGraph row={lane} laneCount={laneCount} />
+      {lane ? <CommitGraph row={lane} laneCount={laneCount} /> : <span className="commit-dot" aria-hidden="true" />}
       <span className="commit-refs">
         {commit.refs?.map((r) => <RefBadge key={`${r.kind}:${r.name}`} ref_={r} />)}
       </span>

@@ -7,6 +7,8 @@ test("searching commits filters by message, author and jumps to a sha", async ({
   const box = page.getByRole("searchbox", { name: "Search commits" });
   await box.fill("feature");
   await expect(history.getByRole("option")).toHaveCount(3); // working tree + f1 + f2
+  await expect(history.locator("svg.commit-graph")).toHaveCount(0); // no lanes for filtered lists
+  await expect(history.locator(".commit-dot")).toHaveCount(2);
   await box.fill("author:nobody");
   await expect(history.getByText("No commits match.")).toBeVisible();
   await box.fill("branch:topic");
@@ -17,4 +19,5 @@ test("searching commits filters by message, author and jumps to a sha", async ({
   await expect(history.getByRole("option").nth(1)).toContainText("c2: add version");
   await box.fill("");
   await expect(history.getByRole("option")).toHaveCount(9);
+  await expect(history.locator("svg.commit-graph")).toHaveCount(8);
 });

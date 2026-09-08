@@ -2,7 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type Commit, type Worktree } from "../api";
-import { ROW_HEIGHT } from "./CommitGraph";
+import { ROW_HEIGHT } from "./lanes";
 import { CommitRow } from "./CommitRow";
 import { layoutLanes } from "./lanes";
 import { isEmptySearch, parseSearch } from "./search";
@@ -34,10 +34,14 @@ export function CommitList({ worktree, ref, selection, onSelect, pageSize = 200,
   });
 
   const commits: Commit[] = useMemo(() => query.data?.pages.flatMap((p) => p.commits) ?? [], [query.data]);
+  // A message/author search yields disconnected commits whose parents never
+  // appear, so lanes would only accumulate: draw dots instead of a graph.
+  const graph = !sq.grep && !sq.author;
   const { rows, laneCount } = useMemo(() => {
+    if (!graph) return { rows: [], laneCount: 1 };
     const { rows } = layoutLanes(commits);
     return { rows, laneCount: rows.reduce((m, r) => Math.max(m, r.width), 1) };
-  }, [commits]);
+  }, [commits, graph]);
 
   const parentRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
@@ -129,7 +133,7 @@ export function CommitList({ worktree, ref, selection, onSelect, pageSize = 200,
               <CommitRow
                 key={commit.sha}
                 commit={commit}
-                lane={rows[item.index]}
+                lane={graph ? rows[item.index] : undefined}
                 laneCount={laneCount}
                 selected={
                   (selection?.kind === "commit" && selection.sha === commit.sha) ||

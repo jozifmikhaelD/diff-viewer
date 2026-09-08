@@ -107,3 +107,13 @@ export const LANE_COLORS = [
 export function laneColor(lane: number): string {
   return LANE_COLORS[lane % LANE_COLORS.length];
 }
+
+export const LANE_WIDTH = 14;
+export const ROW_HEIGHT = 30;
+/** Lanes beyond this are drawn squeezed into the last column so the graph never crowds out the text. */
+export const MAX_LANES = 10;
+
+/** Visible lane index for a logical lane (clamped to the last drawn column). */
+export function clampLane(lane: number): number {
+  return Math.min(lane, MAX_LANES - 1);
+}
