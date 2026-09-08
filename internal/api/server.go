@@ -68,6 +68,7 @@ func NewWithOptions(repo *git.Repo, static fs.FS, version string, bus *watch.Bus
 	s.mux.HandleFunc("GET /api/deps", s.handleDeps)
 	s.mux.HandleFunc("GET /api/recent", s.handleRecent)
 	s.mux.HandleFunc("POST /api/open", s.handleOpen)
+	s.mux.HandleFunc("GET /api/fs/complete", s.handleFSComplete)
 	s.mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "unknown api route")
 	})

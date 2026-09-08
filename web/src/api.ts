@@ -253,3 +253,19 @@ export const repoApi = {
   recent: () => getJSON<{ recent: RecentRepo[] }>("/api/recent"),
   open: (path: string) => postJSON<RepoInfo>("/api/open", { path }),
 };
+
+export interface FSEntry {
+  name: string;
+  path: string;
+  repo: boolean;
+}
+
+export interface FSComplete {
+  dir: string;
+  entries: FSEntry[];
+  more: boolean;
+}
+
+export const fsApi = {
+  complete: (path: string) => getJSON<FSComplete>(`/api/fs/complete${qs({ path })}`),
+};

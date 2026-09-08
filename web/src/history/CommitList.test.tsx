@@ -90,6 +90,20 @@ describe("CommitList", () => {
     expect(screen.queryByText("Loading more…")).not.toBeInTheDocument();
   });
 
+  it("searches commits by message, author and sha (debounced)", async () => {
+    const calls = mockFetch({ "/api/log": (url) => ({ body: { commits: url.searchParams.get("grep") ? [commits[1]] : commits, hasMore: false, skip: 0, limit: 200 } }) });
+    renderWithQuery(<CommitList worktree={worktreeMain} selection={null} onSelect={() => {}} testRect={rect} />);
+    await screen.findByText("m1: merge topic");
+    const user = userEvent.setup();
+    await user.type(screen.getByRole("searchbox", { name: "Search commits" }), "author:ann topic");
+    await waitFor(() => expect(calls.some((c) => c.includes("author=ann") && c.includes("grep=topic"))).toBe(true));
+    await waitFor(() => expect(screen.queryByText("m1: merge topic")).not.toBeInTheDocument());
+    expect(screen.getByText("t1: topic work")).toBeInTheDocument();
+    await user.clear(screen.getByRole("searchbox", { name: "Search commits" }));
+    await user.type(screen.getByRole("searchbox", { name: "Search commits" }), "c3c3c3c3");
+    await waitFor(() => expect(calls.some((c) => c.includes("ref=c3c3c3c3"))).toBe(true));
+  });
+
   it("shows the empty state and errors", async () => {
     mockFetch({ "/api/log": { status: 500, body: { error: "bad object" } } });
     renderWithQuery(<CommitList worktree={worktreeMain} selection={null} onSelect={() => {}} testRect={rect} />);

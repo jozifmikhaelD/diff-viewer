@@ -16,21 +16,35 @@ test("Open… switches to another repository by path and lists it as recent", as
   await page.goto("/");
   await page.getByRole("button", { name: "Open…" }).click();
   const dialog = page.getByRole("dialog", { name: "Open repository" });
-  await dialog.getByRole("textbox", { name: "Repository path" }).fill(wt);
+  await dialog.getByRole("combobox", { name: "Repository path" }).fill(wt);
   await dialog.getByRole("button", { name: "Open", exact: true }).click();
   await expect(page.locator(".repo-root")).toHaveAttribute("title", wt);
   await expect(page.getByRole("listbox", { name: "History" }).locator(".ref-head", { hasText: "feature" })).toBeVisible();
 
   // the previous repo is offered in the recent list
+  await expect(page.getByRole("dialog")).toBeHidden();
   await page.getByRole("button", { name: "Open…" }).click();
   const recent = page.getByRole("list", { name: "Recent repositories" });
   await expect(recent).toContainText(original);
   await recent.getByRole("button", { name: /repo$/ }).first().click();
   await expect(page.locator(".repo-root")).toHaveAttribute("title", original);
 
-  // a bad path is reported inline
+  // typing a parent path suggests directories, marking git repos
+  await expect(page.getByRole("dialog")).toBeHidden();
   await page.getByRole("button", { name: "Open…" }).click();
-  await page.getByRole("textbox", { name: "Repository path" }).fill("/definitely/not/here");
+  await expect(page.getByRole("dialog", { name: "Open repository" })).toBeVisible();
+  const parent = original.slice(0, original.lastIndexOf("/") + 1);
+  await page.getByRole("combobox", { name: "Repository path" }).fill(parent + "re");
+  const list = page.getByRole("listbox", { name: "Directories" });
+  await expect(list.getByRole("option", { name: /repo/ })).toContainText("git repo");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".repo-root")).toHaveAttribute("title", original);
+
+  // a bad path is reported inline
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await page.getByRole("button", { name: "Open…" }).click();
+  await page.getByRole("combobox", { name: "Repository path" }).fill("/definitely/not/here");
   await page.getByRole("button", { name: "Open", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("no such directory");
   await page.keyboard.press("Escape");

@@ -154,6 +154,27 @@ code {
   flex: 1;
   min-height: 0;
 }
+.commit-rows {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.commit-search {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+.commit-search input {
+  font: inherit;
+  font-size: 0.85rem;
+  width: 100%;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+}
 .commit-scroll {
   flex: 1;
   overflow: auto;
@@ -934,4 +955,41 @@ g.node.neighbour .dep-label {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+}
+
+/* ---- path suggestions ---- */
+.suggestions {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  max-height: 14rem;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.suggestions li[role="option"] {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+}
+.suggestions li.active,
+.suggestions li[role="option"]:hover {
+  background: var(--accent-soft);
+}
+.fs-icon {
+  color: var(--muted);
+  width: 1ch;
+}
+.fs-icon.repo {
+  color: var(--accent);
+}
+.fs-tag {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--accent);
+  font-family: inherit;
 }

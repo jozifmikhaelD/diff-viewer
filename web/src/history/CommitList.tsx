@@ -1,10 +1,11 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type Commit, type Worktree } from "../api";
 import { ROW_HEIGHT } from "./CommitGraph";
 import { CommitRow } from "./CommitRow";
 import { layoutLanes } from "./lanes";
+import { isEmptySearch, parseSearch } from "./search";
 import { anchorOf, rangeFromClick, type Selection } from "./selection";
 import { WorkingTreeRow } from "./WorkingTreeRow";
 
@@ -21,9 +22,13 @@ interface Props {
 }
 
 export function CommitList({ worktree, ref, selection, onSelect, pageSize = 200, testRect }: Props) {
+  const [search, setSearch] = useState("");
+  const debounced = useDebounced(search, 250);
+  const sq = useMemo(() => parseSearch(debounced), [debounced]);
+  const effectiveRef = sq.ref ?? ref;
   const query = useInfiniteQuery({
-    queryKey: ["log", worktree.path, ref ?? "", pageSize],
-    queryFn: ({ pageParam }) => api.log({ wt: worktree.path, ref, skip: pageParam, limit: pageSize }),
+    queryKey: ["log", worktree.path, effectiveRef ?? "", pageSize, sq.author ?? "", sq.grep ?? ""],
+    queryFn: ({ pageParam }) => api.log({ wt: worktree.path, ref: effectiveRef, author: sq.author, grep: sq.grep, skip: pageParam, limit: pageSize }),
     initialPageParam: 0,
     getNextPageParam: (last) => (last.hasMore ? last.skip + last.commits.length : undefined),
   });
@@ -78,7 +83,18 @@ export function CommitList({ worktree, ref, selection, onSelect, pageSize = 200,
   }, [lastIndex, commits.length, query]);
 
   return (
-    <div className="commit-list" role="listbox" aria-label="History">
+    <div className="commit-list">
+      <div className="commit-search">
+        <input
+          type="search"
+          aria-label="Search commits"
+          placeholder="Search commits…  author:name · sha · branch:name"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          spellCheck={false}
+        />
+      </div>
+      <div className="commit-rows" role="listbox" aria-label="History">
       <WorkingTreeRow
         worktree={worktree}
         selected={selection?.kind === "worktree"}
@@ -90,7 +106,7 @@ export function CommitList({ worktree, ref, selection, onSelect, pageSize = 200,
         </p>
       )}
       {query.isPending && <p role="status">Loading history…</p>}
-      {query.isSuccess && commits.length === 0 && <p className="empty">No commits.</p>}
+      {query.isSuccess && commits.length === 0 && <p className="empty">{isEmptySearch(sq) ? "No commits." : "No commits match."}</p>}
       <div ref={parentRef} className="commit-scroll">
         <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
           {items.map((item) => {
@@ -127,6 +143,16 @@ export function CommitList({ worktree, ref, selection, onSelect, pageSize = 200,
           })}
         </div>
       </div>
+      </div>
     </div>
   );
+}
+
+function useDebounced<T>(value: T, ms: number): T {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
 }
