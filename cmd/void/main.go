@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"void/internal/api"
+	"void/internal/config"
 	"void/internal/git"
 	"void/internal/watch"
 	"void/web"
@@ -64,6 +65,9 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	if err := git.Preflight(ctx); err != nil {
+		return err
+	}
 	repo, err := git.Open(ctx, path)
 	if err != nil {
 		if errors.Is(err, git.ErrNotRepo) {
@@ -82,10 +86,15 @@ func run() error {
 	var bus *watch.Bus
 	if !*noWatch {
 		bus = watch.NewBus()
-		startWatchers(ctx, repo, bus)
 	}
+	store, err := config.Default()
+	if err != nil {
+		log.Printf("config: %v (recent repos disabled)", err)
+	}
+	handler := api.NewWithOptions(repo, web.Dist(), version, bus, api.Options{Config: store, Watch: !*noWatch})
+	defer handler.Close()
 	srv := &http.Server{
-		Handler:           api.New(repo, web.Dist(), version, bus),
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	errc := make(chan error, 1)
@@ -102,32 +111,6 @@ func run() error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		return srv.Shutdown(shutdownCtx)
-	}
-}
-
-// startWatchers watches every worktree of the repository; failures degrade to
-// no live updates for that worktree rather than aborting startup.
-func startWatchers(ctx context.Context, repo *git.Repo, bus *watch.Bus) {
-	wts, err := repo.Worktrees(ctx)
-	if err != nil {
-		log.Printf("watch: list worktrees: %v", err)
-		wts = []git.Worktree{{Path: repo.Root}}
-	}
-	for _, wt := range wts {
-		if wt.Bare || wt.Prunable {
-			continue
-		}
-		r, err := git.Open(ctx, wt.Path)
-		if err != nil {
-			log.Printf("watch %s: %v", wt.Path, err)
-			continue
-		}
-		w := watch.New(r.Root, r.GitDir, r.CommonDir, bus, watch.Options{})
-		go func() {
-			if err := w.Run(ctx); err != nil {
-				log.Printf("watch %s: %v", r.Root, err)
-			}
-		}()
 	}
 }
 

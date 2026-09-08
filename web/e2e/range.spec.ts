@@ -18,7 +18,7 @@ test("shift-click selects a range; merge-base toggle switches to three-dot seman
 test("branch vs base preset compares a feature worktree against main since the merge base", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("button", { name: /vs main/ })).toHaveCount(0);
-  await page.getByRole("combobox").selectOption({ label: "wt-feature · feature" });
+  await page.getByRole("combobox", { name: "Worktree" }).selectOption({ label: "wt-feature · feature" });
   await page.getByRole("button", { name: "feature vs main" }).click();
   const main = page.getByRole("main");
   await expect(main.getByRole("heading", { name: /Range/ })).toBeVisible();

@@ -228,3 +228,28 @@ export const depsApi = {
   graph: (wt: string, sel: ChangesetSelector, depth: number) =>
     getJSON<DepGraph>(`${changesetURL(wt, sel).replace("/api/changeset", "/api/deps")}&depth=${depth}`),
 };
+
+export interface RecentRepo {
+  path: string;
+  lastOpen: string;
+}
+
+async function postJSON<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!res.ok) {
+    let message = `${res.status} ${res.statusText}`;
+    try {
+      const data = (await res.json()) as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      // keep status text
+    }
+    throw new Error(message);
+  }
+  return (await res.json()) as T;
+}
+
+export const repoApi = {
+  recent: () => getJSON<{ recent: RecentRepo[] }>("/api/recent"),
+  open: (path: string) => postJSON<RepoInfo>("/api/open", { path }),
+};

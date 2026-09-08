@@ -22,7 +22,7 @@ test("history lists fixture commits with graph, refs and working-tree badges", a
 
 test("switching worktree shows that worktree's HEAD and a clean working tree", async ({ page }) => {
   await page.goto("/");
-  const select = page.getByRole("combobox");
+  const select = page.getByRole("combobox", { name: "Worktree" });
   await expect(select).toContainText("repo · main (main worktree)");
   await select.selectOption({ label: "wt-feature · feature" });
 

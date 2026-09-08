@@ -11,6 +11,8 @@ test("selecting a commit opens the first file's diff with word highlights; split
   await expect(diff.getByRole("heading", { name: /src\/util\.ts → src\/utils\.ts/ })).toBeVisible();
   await expect(diff.locator("tr.del .chg")).toHaveText("hello");
   await expect(diff.locator("tr.add .chg")).toHaveText("hi");
+  // syntax highlighting arrives lazily: TypeScript keywords get a colour
+  await expect(diff.locator("td.code span[style*='color']").first()).toBeVisible({ timeout: 15_000 });
 
   await diff.getByRole("radio", { name: "Side by side" }).click();
   await expect(diff.locator("table.split")).toBeVisible();

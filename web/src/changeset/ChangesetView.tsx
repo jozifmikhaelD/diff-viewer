@@ -15,6 +15,7 @@ interface Props {
   selectedPath: string | null;
   onSelectPath: (path: string) => void;
   onSelectionChange?: (sel: Selection) => void;
+  scheme?: "light" | "dark";
 }
 
 const MODES: { value: WorktreeMode; label: string }[] = [
@@ -44,7 +45,7 @@ function usePersisted<T extends string>(key: string, fallback: T, valid: readonl
   return [value, set];
 }
 
-export function ChangesetView({ worktree, selection, selectedPath, onSelectPath, onSelectionChange }: Props) {
+export function ChangesetView({ worktree, selection, selectedPath, onSelectPath, onSelectionChange, scheme }: Props) {
   const [mode, setMode] = useState<WorktreeMode>("all");
   const [view, setView] = usePersisted<FileView>("void.fileView", "tree", ["tree", "flat"]);
   const [diffMode, setDiffMode] = usePersisted<DiffMode>("void.diffMode", "unified", ["unified", "split"]);
@@ -179,6 +180,7 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
                 worktree={worktree}
                 selector={selector}
                 file={current}
+                scheme={scheme}
                 mode={diffMode}
                 onModeChange={setDiffMode}
                 ignoreWhitespace={ws === "1"}

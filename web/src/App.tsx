@@ -4,6 +4,8 @@ import { api, type Worktree } from "./api";
 import { ChangesetView } from "./changeset/ChangesetView";
 import { CommitList, type Selection } from "./history/CommitList";
 import { useLiveUpdates } from "./live";
+import { RepoSwitcher } from "./RepoSwitcher";
+import { useTheme, type Theme } from "./theme";
 import { WorktreeSwitcher } from "./history/WorktreeSwitcher";
 
 function selectionKey(sel: NonNullable<Selection>): string {
@@ -20,6 +22,7 @@ function selectionKey(sel: NonNullable<Selection>): string {
 export default function App() {
   const repo = useQuery({ queryKey: ["repo"], queryFn: api.repo, refetchInterval: 30000 });
   useLiveUpdates();
+  const { theme, scheme, setTheme } = useTheme();
   const health = useQuery({ queryKey: ["health"], queryFn: api.health, staleTime: Infinity });
 
   const [wtPath, setWtPath] = useState<string | null>(null);
@@ -51,6 +54,16 @@ export default function App() {
         {repo.data && current && (
           <WorktreeSwitcher worktrees={worktrees} value={current.path} onChange={switchWorktree} />
         )}
+        {repo.data && (
+          <RepoSwitcher
+            current={repo.data.root}
+            onOpened={() => {
+              setWtPath(null);
+              setSelection(null);
+              setSelectedPath(null);
+            }}
+          />
+        )}
         {canCompareBase && (
           <button type="button" className={`ghost${comparingBase ? " on" : ""}`} onClick={compareBase} title={`Changes on ${current?.branch} since it diverged from ${defaultBranch}`}>
             {current?.branch} vs {defaultBranch}
@@ -58,6 +71,11 @@ export default function App() {
         )}
         <span className="spacer" />
         {repo.data && <span className="repo-root" title={repo.data.root}>{repo.data.root}</span>}
+        <select className="theme-select" aria-label="Theme" value={theme} onChange={(e) => setTheme(e.target.value as Theme)} title="Colour theme">
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
         {health.data && <span className="version">v{health.data.version}</span>}
       </header>
       {repo.isPending && <p role="status">Connecting…</p>}
@@ -82,6 +100,7 @@ export default function App() {
                 selectedPath={selectedPath}
                 onSelectPath={setSelectedPath}
                 onSelectionChange={select}
+                scheme={scheme}
               />
             )}
           </main>

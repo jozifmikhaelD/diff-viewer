@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("the dependency map shows changed files, their imports, and neighbours; clicking a node opens its diff", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("combobox").selectOption({ label: "wt-feature · feature" });
+  await page.getByRole("combobox", { name: "Worktree" }).selectOption({ label: "wt-feature · feature" });
   await page.getByRole("button", { name: "feature vs main" }).click();
   const main = page.getByRole("main");
   await main.getByRole("radio", { name: "Map" }).click();

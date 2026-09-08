@@ -4,7 +4,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 GO_PORT ?= 4000
 
-.PHONY: help dev dev-go dev-web web build test test-go test-web e2e lint fixture clean
+.PHONY: help dev dev-go dev-web web build verify perf release-snapshot test test-go test-web e2e lint fixture clean
 
 help: ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'
@@ -26,6 +26,15 @@ web: ## build the frontend into web/dist
 
 build: web ## build the single binary at bin/void (embeds web/dist)
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o bin/void ./cmd/void
+
+verify: build ## smoke-test the built binary against the fixture repo
+	bash scripts/verify-release.sh bin/void
+
+perf: ## first-page history latency on a generated 10k-commit repo
+	VOID_PERF=1 go test -run TestLogFirstPageLatency -count=1 -v ./internal/git/
+
+release-snapshot: ## build release archives locally (needs goreleaser)
+	goreleaser release --snapshot --clean
 
 test: test-go test-web ## run all unit tests
 

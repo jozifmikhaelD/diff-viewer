@@ -60,7 +60,7 @@ func TestHealth(t *testing.T) {
 func TestRepoListsWorktreesWithStatus(t *testing.T) {
 	s := newTestServer(t, fstest.MapFS{})
 	body := decode[RepoResponse](t, get(t, s, "/api/repo"), http.StatusOK)
-	if body.Root != s.repo.Root || body.DefaultBranch != "main" {
+	if body.Root != s.current().Root || body.DefaultBranch != "main" {
 		t.Errorf("root/default = %q/%q", body.Root, body.DefaultBranch)
 	}
 	if len(body.Worktrees) != 2 {

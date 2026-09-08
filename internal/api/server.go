@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"void/internal/deps"
 	"void/internal/git"
@@ -28,25 +29,35 @@ const (
 
 // Server is the HTTP handler for void.
 type Server struct {
-	repo    *git.Repo // the repo/worktree void was launched in
 	static  fs.FS
 	version string
 	mux     *http.ServeMux
+	opts    Options
 
 	bus     *watch.Bus // nil disables /api/events
 	indexer *deps.Indexer
 
 	mu    sync.Mutex
-	repos map[string]*git.Repo // opened worktrees by path
+	state *repoState // the open repository and its worktrees
 }
 
 // New builds a Server for repo, serving static assets from static. bus may be
 // nil, in which case live updates are disabled.
 func New(repo *git.Repo, static fs.FS, version string, bus *watch.Bus) *Server {
+	return NewWithOptions(repo, static, version, bus, Options{})
+}
+
+// NewWithOptions is New with recent-repo persistence and watcher management.
+func NewWithOptions(repo *git.Repo, static fs.FS, version string, bus *watch.Bus, opts Options) *Server {
 	s := &Server{
-		repo: repo, static: static, version: version, mux: http.NewServeMux(), bus: bus,
-		repos:   map[string]*git.Repo{repo.Root: repo},
+		static: static, version: version, mux: http.NewServeMux(), bus: bus, opts: opts,
 		indexer: deps.NewIndexer(8),
+	}
+	s.state = s.newState(repo)
+	if opts.Config != nil {
+		if _, err := opts.Config.Touch(repo.Root, time.Now()); err != nil {
+			log.Printf("config: record recent repo: %v", err)
+		}
 	}
 	s.mux.HandleFunc("GET /api/health", s.handleHealth)
 	s.mux.HandleFunc("GET /api/repo", s.handleRepo)
@@ -55,6 +66,8 @@ func New(repo *git.Repo, static fs.FS, version string, bus *watch.Bus) *Server {
 	s.mux.HandleFunc("GET /api/diff", s.handleDiff)
 	s.mux.HandleFunc("GET /api/events", s.handleEvents)
 	s.mux.HandleFunc("GET /api/deps", s.handleDeps)
+	s.mux.HandleFunc("GET /api/recent", s.handleRecent)
+	s.mux.HandleFunc("POST /api/open", s.handleOpen)
 	s.mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "unknown api route")
 	})
@@ -64,6 +77,24 @@ func New(repo *git.Repo, static fs.FS, version string, bus *watch.Bus) *Server {
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
+}
+
+// current returns the open repository.
+func (s *Server) current() *git.Repo {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.state.repo
+}
+
+// Close stops watchers for the open repository.
+func (s *Server) Close() {
+	s.mu.Lock()
+	st := s.state
+	s.mu.Unlock()
+	if st != nil && st.cancel != nil {
+		st.cancel()
+		st.watchWG.Wait()
+	}
 }
 
 type healthResponse struct {
@@ -93,20 +124,21 @@ type RepoResponse struct {
 
 func (s *Server) handleRepo(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	wts, err := s.repo.Worktrees(ctx)
+	repo := s.current()
+	wts, err := repo.Worktrees(ctx)
 	if err != nil {
 		writeGitError(w, err)
 		return
 	}
 	resp := RepoResponse{
-		Root:          s.repo.Root,
-		CommonDir:     s.repo.CommonDir,
-		DefaultBranch: s.repo.DefaultBranch(ctx),
+		Root:          repo.Root,
+		CommonDir:     repo.CommonDir,
+		DefaultBranch: repo.DefaultBranch(ctx),
 		Worktrees:     make([]WorktreeInfo, len(wts)),
 	}
 	var wg sync.WaitGroup
 	for i, wt := range wts {
-		info := WorktreeInfo{Worktree: wt, Current: wt.Path == s.repo.Root}
+		info := WorktreeInfo{Worktree: wt, Current: wt.Path == repo.Root}
 		resp.Worktrees[i] = info
 		if wt.Bare || wt.Prunable {
 			continue
@@ -183,17 +215,20 @@ var errUnknownWorktree = errors.New("unknown worktree")
 // probe arbitrary directories.
 func (s *Server) repoFor(ctx context.Context, r *http.Request) (*git.Repo, error) {
 	wt := r.URL.Query().Get("wt")
+	s.mu.Lock()
+	st := s.state
+	s.mu.Unlock()
 	if wt == "" {
-		return s.repo, nil
+		return st.repo, nil
 	}
 	wt = filepath.Clean(wt)
 	s.mu.Lock()
-	repo, ok := s.repos[wt]
+	repo, ok := st.repos[wt]
 	s.mu.Unlock()
 	if ok {
 		return repo, nil
 	}
-	wts, err := s.repo.Worktrees(ctx)
+	wts, err := st.repo.Worktrees(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -208,15 +243,19 @@ func (s *Server) repoFor(ctx context.Context, r *http.Request) (*git.Repo, error
 func (s *Server) openWorktree(ctx context.Context, p string) (*git.Repo, error) {
 	p = filepath.Clean(p)
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if repo, ok := s.repos[p]; ok {
+	st := s.state
+	if repo, ok := st.repos[p]; ok {
+		s.mu.Unlock()
 		return repo, nil
 	}
+	s.mu.Unlock()
 	repo, err := git.Open(ctx, p)
 	if err != nil {
 		return nil, err
 	}
-	s.repos[p] = repo
+	s.mu.Lock()
+	st.repos[p] = repo
+	s.mu.Unlock()
 	return repo, nil
 }
 

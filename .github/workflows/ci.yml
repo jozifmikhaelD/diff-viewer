@@ -18,6 +18,8 @@ jobs:
       - uses: golangci/golangci-lint-action@v6
         with: { version: latest }
       - run: go test -race -count=1 ./...
+      - run: make perf
+        if: matrix.os == 'ubuntu-latest'
 
   web:
     runs-on: ubuntu-latest
@@ -67,3 +69,5 @@ jobs:
         with: { node-version: 22, cache: pnpm, cache-dependency-path: web/pnpm-lock.yaml }
       - run: make build
         env: { GOOS: "${{ matrix.goos }}", GOARCH: "${{ matrix.goarch }}" }
+      - run: bash scripts/verify-release.sh bin/void
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'

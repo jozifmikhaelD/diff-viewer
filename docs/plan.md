@@ -184,7 +184,7 @@ Each milestone is independently demoable. Estimates are rough engineering days a
 - **Tests:** numstat/name-status parsers (renames, copies, binary `-`, type change, paths with spaces/unicode); golden tests for every mode of `/api/changeset` (commit, range, staged, unstaged, untracked, all); file-tree component tests (grouping, filter, empty state).
 - **Demo:** click a commit or range, see totals and file list.
 
-### M3 — Diff viewer (4d) ✅ 2026-09-08 (syntax highlighting deferred to M6 polish)
+### M3 — Diff viewer (4d) ✅ 2026-09-08 (Shiki highlighting landed in M6)
 - `diff.go`: per-file structured hunks; `show.go` for full-file content at both revs; rename/binary handling.
 - API `/api/diff`.
 - UI: side-by-side and unified, Shiki highlighting, word-level diff, expand context, keyboard nav, ignore-whitespace.
@@ -204,7 +204,7 @@ Each milestone is independently demoable. Estimates are rough engineering days a
 - **Tests:** per-language resolver fixture trees (TS: relative, tsconfig `paths`/`baseUrl`, index files, `.js`→`.ts`; Python: relative + package imports; Go: module-path imports; Java: package imports); cache invalidation tests (SHA-keyed, working-tree incremental); `/api/deps` golden tests at depth 0/1/2; graph component tests (node click scrolls, neighbour toggle); Playwright flow: select commit → map renders → click node → diff scrolls.
 - **Demo:** see how a change ripples through the codebase.
 
-### M6 — Polish & release (2d)
+### M6 — Polish & release (2d) ✅ 2026-09-08
 - Recent repos, light/dark, empty/error states, large-repo guardrails, `--open` browser launch, goreleaser for macOS/Linux binaries, README with dev-container instructions.
 - **Tests:** config persistence tests; error-state component tests (not a repo, git missing, permission denied); performance smoke test in CI against a generated 10k-commit repo asserting first-page latency; release build verified by running the packaged binary against the fixture repo.
 
@@ -226,3 +226,17 @@ Automated coverage is defined per milestone above (definition of done + per-mile
 - Graph library: **d3-force** for control over layout; cytoscape.js if we want built-in clustering fast.
 - Config location: `~/.config/void/config.json`.
 - Licence: MIT.
+
+---
+
+## 8. Delivery notes (2026-09-08)
+
+All six milestones shipped in one day of pairing. Deviations from the plan above:
+- Lane layout runs client-side; the server returns commits with parents and refs.
+- `/api/diff` returns both full sides (≤2 MiB / 20k lines) so split view and context expansion need no extra requests.
+- Live updates derive the watched directory set from `git ls-files`, with a polling fallback above the fd budget.
+- Dependency indexes are keyed by tree hash (LRU 8); the working tree overlays changed files on HEAD.
+- Repo switching (`POST /api/open`) and the recent list (`GET /api/recent`) were added so "recent repos" is usable without restarting.
+- Measured: first page of history on a generated 10k-commit repo takes ~35 ms with `--topo-order`, well inside the 1 s goal (`make perf`).
+
+Not done / follow-ups: Windows support, co-change graph, write operations, PR integration; goreleaser publishing needs a GitHub token in CI.

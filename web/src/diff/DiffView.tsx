@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { diffApi, type ChangesetSelector, type FileChange, type FileDiff, type Worktree } from "../api";
+import { languageFor, mergePieces, tokenizeLines, type LineTokens } from "./highlight";
 import { buildRows, EXPAND_STEP, hunkStarts, type GapRow, type GapState, type LineRow, type Row } from "./rows";
 import { wordDiff, type Segment } from "./wordDiff";
 
@@ -10,6 +11,7 @@ interface Props {
   worktree: Worktree;
   selector: ChangesetSelector;
   file: FileChange;
+  scheme?: "light" | "dark";
   mode: DiffMode;
   onModeChange: (m: DiffMode) => void;
   ignoreWhitespace: boolean;
@@ -18,7 +20,7 @@ interface Props {
 
 const fmtBytes = (n: number) => (n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`);
 
-export function DiffView({ worktree, selector, file, mode, onModeChange, ignoreWhitespace, onIgnoreWhitespaceChange }: Props) {
+export function DiffView({ worktree, selector, file, scheme = "light", mode, onModeChange, ignoreWhitespace, onIgnoreWhitespaceChange }: Props) {
   const query = useQuery({
     queryKey: ["diff", worktree.path, selector, file.path, file.oldPath ?? "", ignoreWhitespace],
     queryFn: () => diffApi.file(worktree.path, selector, file.path, file.oldPath, { ignoreWhitespace }),
@@ -30,6 +32,7 @@ export function DiffView({ worktree, selector, file, mode, onModeChange, ignoreW
   const starts = useMemo(() => hunkStarts(rows), [rows]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hunkIdx, setHunkIdx] = useState(-1);
+  const highlight = useHighlight(fd, file.path, scheme);
 
   const expand = useCallback((gap: GapRow, dir: "up" | "down" | "all") => {
     setGaps((g) => {
@@ -112,11 +115,68 @@ export function DiffView({ worktree, selector, file, mode, onModeChange, ignoreW
           {!fd.binary && fd.hunks.length === 0 && (
             <p className="diff-notice">{churn === 0 && !ignoreWhitespace ? "No textual changes." : "No changes to show" + (ignoreWhitespace ? " once whitespace is ignored." : ".")}</p>
           )}
-          {!fd.binary && fd.hunks.length > 0 && (mode === "split" ? <SplitTable rows={rows} onExpand={expand} /> : <UnifiedTable rows={rows} onExpand={expand} />)}
+          {!fd.binary && fd.hunks.length > 0 && (mode === "split" ? <SplitTable rows={rows} onExpand={expand} hl={highlight} /> : <UnifiedTable rows={rows} onExpand={expand} hl={highlight} />)}
         </div>
       )}
     </section>
   );
+}
+
+/** Per-side line tokens (index = line number - 1); empty until Shiki resolves. */
+interface Highlight {
+  old: LineTokens[] | null;
+  new: LineTokens[] | null;
+}
+
+const NO_HIGHLIGHT: Highlight = { old: null, new: null };
+
+type HighlightState = Highlight & { for: FileDiff | undefined; scheme: string };
+
+function useHighlight(fd: FileDiff | undefined, path: string, scheme: "light" | "dark"): Highlight {
+  const [hl, setHl] = useState<HighlightState>({ ...NO_HIGHLIGHT, for: undefined, scheme });
+  const lang = languageFor(path);
+  useEffect(() => {
+    if (!fd || fd.binary || !lang) return;
+    let cancelled = false;
+    // Full sides when available; otherwise tokenize the hunk lines by side so
+    // multi-line constructs at least highlight within a hunk.
+    const oldLines = fd.old ? { lines: fd.old, numbers: null } : linesFromHunks(fd, "-");
+    const newLines = fd.new ? { lines: fd.new, numbers: null } : linesFromHunks(fd, "+");
+    void Promise.all([tokenizeLines(oldLines.lines, lang, scheme), tokenizeLines(newLines.lines, lang, scheme)]).then(([o, n]) => {
+      if (cancelled) return;
+      setHl({ for: fd, scheme, old: o ? remap(o, oldLines.numbers) : null, new: n ? remap(n, newLines.numbers) : null });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fd, lang, scheme]);
+  // Results for a different file or scheme are stale: render plain until the new ones land.
+  return hl.for === fd && hl.scheme === scheme ? hl : NO_HIGHLIGHT;
+}
+
+/** Lines of one side taken from hunks (for truncated files), with their line numbers. */
+function linesFromHunks(fd: FileDiff, side: "-" | "+"): { lines: string[]; numbers: number[] | null } {
+  const lines: string[] = [];
+  const numbers: number[] = [];
+  for (const h of fd.hunks) {
+    for (const l of h.lines) {
+      if (l.t === " " || l.t === side) {
+        lines.push(l.s);
+        numbers.push((side === "-" ? l.o : l.n) ?? 0);
+      }
+    }
+  }
+  return { lines, numbers };
+}
+
+/** Places tokens at their line numbers when they came from a subset of lines. */
+function remap(tokens: LineTokens[], numbers: number[] | null): LineTokens[] {
+  if (!numbers) return tokens;
+  const out: LineTokens[] = [];
+  numbers.forEach((no, i) => {
+    if (no > 0) out[no - 1] = tokens[i];
+  });
+  return out;
 }
 
 function isTyping(target: EventTarget | null): boolean {
@@ -136,18 +196,20 @@ function useWordDiffs(rows: Row[]) {
   }, [rows]);
 }
 
-function Code({ text, segments, changed }: { text: string; segments?: Segment[]; changed?: boolean }) {
-  if (!segments) return <span className={changed ? "chg" : undefined}>{text}</span>;
+function Code({ text, segments, tokens }: { text: string; segments?: Segment[]; tokens?: LineTokens }) {
+  const pieces = mergePieces(tokens, segments, text);
   return (
     <>
-      {segments.map((s, i) => (
-        <span key={i} className={s.changed ? "chg" : undefined}>
-          {s.text}
+      {pieces.map((p, i) => (
+        <span key={i} className={p.changed ? "chg" : undefined} style={p.color ? { color: p.color } : undefined}>
+          {p.text}
         </span>
       ))}
     </>
   );
 }
+
+const tokensAt = (side: LineTokens[] | null, no: number | undefined) => (side && no ? side[no - 1] : undefined);
 
 function GapCells({ gap, onExpand, colSpan }: { gap: GapRow; onExpand: (g: GapRow, d: "up" | "down" | "all") => void; colSpan: number }) {
   return (
@@ -175,7 +237,7 @@ function GapCells({ gap, onExpand, colSpan }: { gap: GapRow; onExpand: (g: GapRo
 
 const lineClass = (t?: " " | "+" | "-") => (t === "+" ? "add" : t === "-" ? "del" : "ctx");
 
-function UnifiedTable({ rows, onExpand }: { rows: Row[]; onExpand: (g: GapRow, d: "up" | "down" | "all") => void }) {
+function UnifiedTable({ rows, onExpand, hl }: { rows: Row[]; onExpand: (g: GapRow, d: "up" | "down" | "all") => void; hl: Highlight }) {
   const wd = useWordDiffs(rows);
   return (
     <table className="diff-table unified">
@@ -195,8 +257,8 @@ function UnifiedTable({ rows, onExpand }: { rows: Row[]; onExpand: (g: GapRow, d
             ];
           const out = [];
           const seg = wd.get(r.key);
-          if (r.old) out.push(<LineTr key={`${r.key}o`} row={r} side={r.old} otherNo={r.old.type === " " ? r.new?.no : undefined} segments={seg?.a} index={i} />);
-          if (r.new && r.new.type !== " ") out.push(<LineTr key={`${r.key}n`} row={r} side={r.new} segments={seg?.b} index={i} />);
+          if (r.old) out.push(<LineTr key={`${r.key}o`} row={r} side={r.old} otherNo={r.old.type === " " ? r.new?.no : undefined} segments={seg?.a} tokens={tokensAt(hl.old, r.old.no) ?? (r.old.type === " " ? tokensAt(hl.new, r.new?.no) : undefined)} index={i} />);
+          if (r.new && r.new.type !== " ") out.push(<LineTr key={`${r.key}n`} row={r} side={r.new} segments={seg?.b} tokens={tokensAt(hl.new, r.new.no)} index={i} />);
           return out;
         })}
       </tbody>
@@ -204,7 +266,7 @@ function UnifiedTable({ rows, onExpand }: { rows: Row[]; onExpand: (g: GapRow, d
   );
 }
 
-function LineTr({ row, side, otherNo, segments, index }: { row: LineRow; side: NonNullable<LineRow["old"]>; otherNo?: number; segments?: Segment[]; index: number }) {
+function LineTr({ row, side, otherNo, segments, tokens, index }: { row: LineRow; side: NonNullable<LineRow["old"]>; otherNo?: number; segments?: Segment[]; tokens?: LineTokens; index: number }) {
   const cls = lineClass(side.type);
   const oldNo = side.type === "+" ? "" : side.no;
   const newNo = side.type === "-" ? "" : side.type === " " ? otherNo ?? side.no : side.no;
@@ -214,14 +276,14 @@ function LineTr({ row, side, otherNo, segments, index }: { row: LineRow; side: N
       <td className="no">{newNo}</td>
       <td className="code">
         <span className="sign">{side.type === " " ? " " : side.type}</span>
-        <Code text={side.text} segments={segments} />
+        <Code text={side.text} segments={segments} tokens={tokens} />
         {side.nonl && <span className="nonl" title="No newline at end of file">⏎</span>}
       </td>
     </tr>
   );
 }
 
-function SplitTable({ rows, onExpand }: { rows: Row[]; onExpand: (g: GapRow, d: "up" | "down" | "all") => void }) {
+function SplitTable({ rows, onExpand, hl }: { rows: Row[]; onExpand: (g: GapRow, d: "up" | "down" | "all") => void; hl: Highlight }) {
   const wd = useWordDiffs(rows);
   return (
     <table className="diff-table split">
@@ -244,12 +306,12 @@ function SplitTable({ rows, onExpand }: { rows: Row[]; onExpand: (g: GapRow, d: 
             <tr key={r.key} className="line" data-row={i} data-key={r.key}>
               <td className={`no ${r.old ? lineClass(r.old.type) : "empty"}`}>{r.old?.no ?? ""}</td>
               <td className={`code ${r.old ? lineClass(r.old.type) : "empty"}`}>
-                {r.old && <Code text={r.old.text} segments={seg?.a} />}
+                {r.old && <Code text={r.old.text} segments={seg?.a} tokens={tokensAt(hl.old, r.old.no) ?? (r.old.type === " " ? tokensAt(hl.new, r.new?.no) : undefined)} />}
                 {r.old?.nonl && <span className="nonl" title="No newline at end of file">⏎</span>}
               </td>
               <td className={`no ${r.new ? lineClass(r.new.type) : "empty"}`}>{r.new?.no ?? ""}</td>
               <td className={`code ${r.new ? lineClass(r.new.type) : "empty"}`}>
-                {r.new && <Code text={r.new.text} segments={seg?.b} />}
+                {r.new && <Code text={r.new.text} segments={seg?.b} tokens={tokensAt(hl.new, r.new.no)} />}
                 {r.new?.nonl && <span className="nonl" title="No newline at end of file">⏎</span>}
               </td>
             </tr>

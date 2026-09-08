@@ -16,7 +16,7 @@ describe("App", () => {
       "/api/log": { body: { commits, hasMore: false, skip: 0, limit: 200 } },
     });
     renderWithQuery(<App />);
-    expect(await screen.findByRole("combobox")).toHaveValue("/work/repo");
+    expect(await screen.findByRole("combobox", { name: "Worktree" })).toHaveValue("/work/repo");
     expect(screen.getByText("v1.2.3")).toBeInTheDocument();
     expect(screen.getByTitle("/work/repo")).toBeInTheDocument();
     const history = screen.getByRole("listbox", { name: "History" });
@@ -32,7 +32,7 @@ describe("App", () => {
       "/api/changeset": { body: { kind: "worktree", from: "", to: "", files: [], totals: { files: 0, additions: 0, deletions: 0 } } },
     });
     renderWithQuery(<App />);
-    const select = await screen.findByRole("combobox");
+    const select = await screen.findByRole("combobox", { name: "Worktree" });
     const user = userEvent.setup();
     await user.click(screen.getByText("Working tree"));
     expect(await screen.findByRole("heading", { name: "Working tree" })).toBeInTheDocument();
@@ -50,7 +50,7 @@ describe("App", () => {
       "/api/changeset": { body: { kind: "range", from: "c2c2c2c2", to: "f2f2f2f2", files: [], totals: { files: 0, additions: 0, deletions: 0 } } },
     });
     renderWithQuery(<App />);
-    const select = await screen.findByRole("combobox");
+    const select = await screen.findByRole("combobox", { name: "Worktree" });
     expect(screen.queryByRole("button", { name: /vs main/ })).not.toBeInTheDocument(); // main worktree is on main
     const user = userEvent.setup();
     await user.selectOptions(select, "/work/wt-feature");
