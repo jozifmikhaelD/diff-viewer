@@ -1,0 +1,23 @@
+# Go
+/bin/
+/dist/
+*.test
+*.out
+coverage.*
+
+# Node
+node_modules/
+web/dist/*
+!web/dist/.gitkeep
+web/test-results/
+web/playwright-report/
+web/.vite/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# local scratch
+/tmp/
