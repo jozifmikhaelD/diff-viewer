@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { api, changesetApi, type ChangesetSelector, type Commit, type Worktree, type WorktreeMode } from "../api";
 import { DiffView, type DiffMode } from "../diff/DiffView";
 import { DepsMap } from "../map/DepsMap";
+import { Splitter } from "../Splitter";
+import { usePaneWidth } from "../usePaneWidth";
 import type { Selection } from "../history/CommitList";
 import { relativeTime } from "../lib/time";
 import { FileList, type FileView } from "./FileList";
@@ -52,6 +54,7 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
   const [ws, setWs] = usePersisted<"0" | "1">("void.ignoreWhitespace", "0", ["0", "1"]);
   const [filter, setFilter] = useState("");
   const [pane, setPane] = useState<"diff" | "map">("diff");
+  const [filesWidth, setFilesWidth, resetFilesWidth] = usePaneWidth({ key: "void.filesWidth", initial: 300, min: 200, max: 800 });
 
   const selector: ChangesetSelector =
     selection.kind === "commit"
@@ -153,7 +156,7 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
               ))}
             </div>
           </StatsBanner>
-          <div className="changeset-body">
+          <div className="changeset-body" style={{ gridTemplateColumns: `${filesWidth}px 6px 1fr` }}>
             <FileList
               files={changeset.data.files}
               filter={filter}
@@ -163,6 +166,7 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
               view={view}
               onViewChange={setView}
             />
+            <Splitter width={filesWidth} onChange={setFilesWidth} onReset={resetFilesWidth} label="Resize file list" min={200} max={800} />
             {pane === "map" ? (
               <DepsMap
                 worktree={worktree}

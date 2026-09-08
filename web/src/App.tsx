@@ -5,6 +5,8 @@ import { ChangesetView } from "./changeset/ChangesetView";
 import { CommitList, type Selection } from "./history/CommitList";
 import { useLiveUpdates } from "./live";
 import { RepoSwitcher } from "./RepoSwitcher";
+import { Splitter } from "./Splitter";
+import { usePaneWidth } from "./usePaneWidth";
 import { useTheme, type Theme } from "./theme";
 import { WorktreeSwitcher } from "./history/WorktreeSwitcher";
 
@@ -28,6 +30,7 @@ export default function App() {
   const [wtPath, setWtPath] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [sidebarWidth, setSidebarWidth, resetSidebar] = usePaneWidth({ key: "void.sidebarWidth", initial: 420, min: 260, max: 900 });
 
   const worktrees = repo.data?.worktrees ?? [];
   const current: Worktree | undefined =
@@ -85,10 +88,11 @@ export default function App() {
         </p>
       )}
       {repo.data && current && (
-        <div className="app-body">
+        <div className="app-body" style={{ gridTemplateColumns: `${sidebarWidth}px 6px 1fr` }}>
           <aside className="sidebar">
             <CommitList key={current.path} worktree={current} selection={selection} onSelect={select} />
           </aside>
+          <Splitter width={sidebarWidth} onChange={setSidebarWidth} onReset={resetSidebar} label="Resize history" min={260} max={900} />
           <main className="content">
             {selection === null ? (
               <p className="empty">Select a commit or the working tree to see its changes.</p>

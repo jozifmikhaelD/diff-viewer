@@ -108,15 +108,28 @@ code {
 
 .app-body {
   display: grid;
-  grid-template-columns: minmax(360px, 34%) 1fr;
+  grid-template-columns: 420px 6px 1fr;
   flex: 1;
   min-height: 0;
 }
 .sidebar {
-  border-right: 1px solid var(--border);
   min-height: 0;
+  min-width: 0;
   display: flex;
   container-type: inline-size;
+}
+.splitter {
+  width: 6px;
+  cursor: col-resize;
+  background: var(--border);
+  transition: background 0.15s;
+  align-self: stretch;
+}
+.splitter:hover,
+.splitter.dragging,
+.splitter:focus-visible {
+  background: var(--accent);
+  outline: none;
 }
 @container (max-width: 560px) {
   .commit-author {
@@ -578,12 +591,11 @@ code {
 /* ---- diff ---- */
 .changeset-body {
   display: grid;
-  grid-template-columns: minmax(240px, 28%) 1fr;
+  grid-template-columns: 300px 6px 1fr;
   flex: 1;
   min-height: 0;
 }
 .changeset-body > .file-list {
-  border-right: 1px solid var(--border);
   min-width: 0;
 }
 .diff {
