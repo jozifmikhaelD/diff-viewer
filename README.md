@@ -5,7 +5,7 @@ working tree and get totals, the file list, readable diffs, and a dependency map
 of the changed files. Works with any repo, inside dev containers, and across
 worktrees.
 
-Status: **M0 scaffold**. See [docs/plan.md](docs/plan.md) for the press release,
+Status: **M1 (repo + history)**: worktree switcher, paged commit history with graph lanes, working-tree badges. Changeset views land in M2. See [docs/plan.md](docs/plan.md) for the press release,
 requirements, and milestone breakdown.
 
 ## Run

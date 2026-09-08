@@ -4,7 +4,7 @@ test("serves the app against the fixture repo", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveTitle("void");
   await expect(page.getByRole("heading", { name: "void" })).toBeVisible();
-  await expect(page.getByTestId("repo-root")).toContainText("/repo");
+  await expect(page.locator(".repo-root")).toContainText("/repo");
 });
 
 test("health endpoint reports ok", async ({ request }) => {

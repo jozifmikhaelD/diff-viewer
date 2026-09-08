@@ -1,55 +1,58 @@
-import { useEffect, useState } from "react";
-import { api, type Health, type RepoInfo } from "./api";
-
-type State =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "ready"; health: Health; repo: RepoInfo };
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { api, type Worktree } from "./api";
+import { CommitList, type Selection } from "./history/CommitList";
+import { WorktreeSwitcher } from "./history/WorktreeSwitcher";
 
 export default function App() {
-  const [state, setState] = useState<State>({ status: "loading" });
+  const repo = useQuery({ queryKey: ["repo"], queryFn: api.repo, refetchInterval: 5000 });
+  const health = useQuery({ queryKey: ["health"], queryFn: api.health, staleTime: Infinity });
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([api.health(), api.repo()])
-      .then(([health, repo]) => {
-        if (!cancelled) setState({ status: "ready", health, repo });
-      })
-      .catch((err: unknown) => {
-        if (!cancelled)
-          setState({ status: "error", message: err instanceof Error ? err.message : String(err) });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const [wtPath, setWtPath] = useState<string | null>(null);
+  const [selection, setSelection] = useState<Selection>(null);
+
+  const worktrees = repo.data?.worktrees ?? [];
+  const current: Worktree | undefined =
+    worktrees.find((w) => w.path === wtPath) ?? worktrees.find((w) => w.current) ?? worktrees[0];
+
+  const switchWorktree = (path: string) => {
+    setWtPath(path);
+    setSelection(null);
+  };
 
   return (
-    <main className="app">
+    <div className="app">
       <header className="app-header">
         <h1>void</h1>
-        {state.status === "ready" && <span className="version">v{state.health.version}</span>}
+        {repo.data && current && (
+          <WorktreeSwitcher worktrees={worktrees} value={current.path} onChange={switchWorktree} />
+        )}
+        <span className="spacer" />
+        {repo.data && <span className="repo-root" title={repo.data.root}>{repo.data.root}</span>}
+        {health.data && <span className="version">v{health.data.version}</span>}
       </header>
-      {state.status === "loading" && <p role="status">Connecting…</p>}
-      {state.status === "error" && (
+      {repo.isPending && <p role="status">Connecting…</p>}
+      {repo.isError && (
         <p role="alert" className="error">
-          Could not reach the void server: {state.message}
+          Could not reach the void server: {repo.error.message}
         </p>
       )}
-      {state.status === "ready" && (
-        <section aria-label="repository">
-          <dl>
-            <dt>Repository</dt>
-            <dd data-testid="repo-root">{state.repo.root}</dd>
-            {state.repo.linkedWorktree && (
-              <>
-                <dt>Worktree of</dt>
-                <dd>{state.repo.commonDir}</dd>
-              </>
+      {repo.data && current && (
+        <div className="app-body">
+          <aside className="sidebar">
+            <CommitList key={current.path} worktree={current} selection={selection} onSelect={setSelection} />
+          </aside>
+          <main className="content">
+            {selection === null && <p className="empty">Select a commit or the working tree to see its changes.</p>}
+            {selection?.kind === "commit" && (
+              <p className="empty">
+                Commit <code>{selection.sha.slice(0, 7)}</code> selected. Changeset view arrives in M2.
+              </p>
             )}
-          </dl>
-        </section>
+            {selection?.kind === "worktree" && <p className="empty">Working tree selected. Changeset view arrives in M2.</p>}
+          </main>
+        </div>
       )}
-    </main>
+    </div>
   );
 }

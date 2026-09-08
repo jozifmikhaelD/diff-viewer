@@ -145,7 +145,7 @@ void (Go binary)
 
 **Key API endpoints**
 - `GET /api/repo` → root, worktrees, default branch, HEAD per worktree
-- `GET /api/log?wt=&ref=&skip=&limit=` → commits + lane info
+- `GET /api/log?wt=&ref=&skip=&limit=&author=&grep=` → commits with parents and refs; lane layout is computed client-side (pure function, continues across pages)
 - `GET /api/changeset?wt=&from=&to=|&mode=staged|unstaged|all` → stats + files
 - `GET /api/diff?wt=&from=&to=&path=` → hunks (structured, not raw text)
 - `GET /api/deps?wt=&rev=&paths=...&depth=1` → nodes + edges
@@ -166,11 +166,11 @@ Each milestone is independently demoable. Estimates are rough engineering days a
 - E2E (from M3): Playwright suite that launches the binary against the fixture repo and walks the core flows.
 - CI green: golangci-lint, eslint/tsc, all test suites, build matrix (darwin/linux × amd64/arm64). Coverage reported, no hard threshold in v1.
 
-### M0 — Scaffold (1d)
+### M0 — Scaffold (1d) ✅ 2026-09-08
 - Go module, `cmd/void`, Vite React app in `web/`, `embed.FS` wiring, Makefile (`make dev` runs both; `make build` produces one binary), CI (lint + test + build matrix).
 - **Tests:** `testdata/mkrepo.sh` fixture repo builder + a Go test helper that creates it in a temp dir; Vitest and Playwright configured with one smoke test each so CI runs all suites from day one.
 
-### M1 — Repo + history (3d)
+### M1 — Repo + history (3d) ✅ 2026-09-08
 - `internal/git`: exec wrapper with context, timeouts, `-z` parsing; repo root + worktree discovery; paged log with lanes.
 - API `/api/repo`, `/api/log`.
 - UI: header with worktree switcher; virtualised commit list with graph lanes; pinned "Working tree" row.
