@@ -269,3 +269,24 @@ export interface FSComplete {
 export const fsApi = {
   complete: (path: string) => getJSON<FSComplete>(`/api/fs/complete${qs({ path })}`),
 };
+
+export interface BlameCommit {
+  sha: string;
+  author: string;
+  email: string;
+  time: number;
+  summary: string;
+  uncommitted?: boolean;
+}
+
+export interface Blame {
+  path: string;
+  rev: string;
+  lines: string[];
+  commits: Record<string, BlameCommit>;
+}
+
+export const blameApi = {
+  file: (wt: string, sel: ChangesetSelector, path: string) =>
+    getJSON<Blame>(`${changesetURL(wt, sel).replace("/api/changeset", "/api/blame")}&${qs({ path }).slice(1)}`),
+};

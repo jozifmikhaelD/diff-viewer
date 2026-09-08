@@ -122,6 +122,47 @@ describe("DiffView", () => {
     expect(await screen.findByText("Submodule pointer changed.")).toBeInTheDocument();
   });
 
+  it("whole-file mode expands every gap and blame annotates the focused line", async () => {
+    const c3 = "c".repeat(40);
+    const c1 = "1".repeat(40);
+    mockFetch({
+      "/api/diff": { body: fd },
+      "/api/blame": {
+        body: {
+          path: "src/utils.ts",
+          rev: c3,
+          lines: [...Array(11).fill(c1), c3, c1],
+          commits: {
+            [c1]: { sha: c1, author: "Ann", email: "ann@x", time: 1700000000, summary: "c1: initial project" },
+            [c3]: { sha: c3, author: "Bob", email: "bob@x", time: 1700000120, summary: "c3: rename util" },
+          },
+        },
+      },
+    });
+    const onSelectCommit = vi.fn();
+    renderWithQuery(
+      <DiffView worktree={worktreeMain} selector={{ commit: "c3c3c3c3" }} file={file} mode="unified" onModeChange={noop} ignoreWhitespace={false} onIgnoreWhitespaceChange={noop} wholeFile blame onSelectCommit={onSelectCommit} onWholeFileChange={noop} onBlameChange={noop} />,
+    );
+    await screen.findByRole("table");
+    // no gap left: the final file's 13 lines, no deleted rows
+    expect(screen.queryByText(/unchanged lines/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("row").filter((r) => r.classList.contains("line"))).toHaveLength(13);
+    expect(document.querySelector("tr.del")).toBeNull();
+    expect(document.querySelector('[aria-label="Diff layout"]')).toHaveAttribute("hidden");
+    const user = userEvent.setup();
+    const added = document.querySelector("tr.add")!;
+    await user.hover(added);
+    const note = await screen.findByTestId("blame-note");
+    expect(note).toHaveTextContent(/Bob, .* · c3: rename util/);
+    await user.click(within(note).getByRole("button"));
+    expect(onSelectCommit).toHaveBeenCalledWith(c3);
+    // moving to a context line changes the annotation
+    await user.hover(document.querySelectorAll("tr.ctx")[0]);
+    expect(await screen.findByTestId("blame-note")).toHaveTextContent(/Ann/);
+    expect(screen.getByRole("checkbox", { name: "Whole file" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Blame" })).toBeChecked();
+  });
+
   it("navigates hunks with j/k without stealing keys from inputs", async () => {
     mockFetch({ "/api/diff": { body: fd } });
     renderDiff();

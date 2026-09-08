@@ -10,6 +10,8 @@ interface Props {
   onFilterChange: (f: string) => void;
   selectedPath: string | null;
   onSelect: (path: string) => void;
+  /** Double-click: open the whole file with changes and blame. */
+  onOpen?: (path: string) => void;
   view: FileView;
   onViewChange: (v: FileView) => void;
 }
@@ -25,7 +27,7 @@ const STATUS_LABEL: Record<FileStatus, string> = {
   "?": "untracked",
 };
 
-export function FileList({ files, filter, onFilterChange, selectedPath, onSelect, view, onViewChange }: Props) {
+export function FileList({ files, filter, onFilterChange, selectedPath, onSelect, onOpen, view, onViewChange }: Props) {
   const visible = useMemo(() => files.filter((f) => matchesFilter(f, filter)), [files, filter]);
   const maxChurn = useMemo(() => Math.max(1, ...files.map((f) => f.additions + f.deletions)), [files]);
   const tree = useMemo(() => (view === "tree" ? buildTree(visible) : []), [view, visible]);
@@ -60,10 +62,10 @@ export function FileList({ files, filter, onFilterChange, selectedPath, onSelect
       <ul className="file-tree" role="tree">
         {view === "flat"
           ? visible.map((f) => (
-              <FileRow key={f.path} file={f} depth={0} maxChurn={maxChurn} selected={f.path === selectedPath} onSelect={onSelect} showDir />
+              <FileRow key={f.path} file={f} depth={0} maxChurn={maxChurn} selected={f.path === selectedPath} onSelect={onSelect} onOpen={onOpen} showDir />
             ))
           : tree.map((n) => (
-              <TreeRow key={n.path} node={n} depth={0} maxChurn={maxChurn} selectedPath={selectedPath} onSelect={onSelect} />
+              <TreeRow key={n.path} node={n} depth={0} maxChurn={maxChurn} selectedPath={selectedPath} onSelect={onSelect} onOpen={onOpen} />
             ))}
       </ul>
     </section>
@@ -76,16 +78,18 @@ function TreeRow({
   maxChurn,
   selectedPath,
   onSelect,
+  onOpen,
 }: {
   node: TreeNode;
   depth: number;
   maxChurn: number;
   selectedPath: string | null;
   onSelect: (path: string) => void;
+  onOpen?: (path: string) => void;
 }) {
   const [open, setOpen] = useState(true);
   if (node.kind === "file") {
-    return <FileRow file={node.file} depth={depth} maxChurn={maxChurn} selected={node.path === selectedPath} onSelect={onSelect} />;
+    return <FileRow file={node.file} depth={depth} maxChurn={maxChurn} selected={node.path === selectedPath} onSelect={onSelect} onOpen={onOpen} />;
   }
   return (
     <li role="treeitem" aria-expanded={open} className="dir-item">
@@ -100,7 +104,7 @@ function TreeRow({
       {open && (
         <ul role="group">
           {node.children.map((c) => (
-            <TreeRow key={c.path} node={c} depth={depth + 1} maxChurn={maxChurn} selectedPath={selectedPath} onSelect={onSelect} />
+            <TreeRow key={c.path} node={c} depth={depth + 1} maxChurn={maxChurn} selectedPath={selectedPath} onSelect={onSelect} onOpen={onOpen} />
           ))}
         </ul>
       )}
@@ -114,6 +118,7 @@ function FileRow({
   maxChurn,
   selected,
   onSelect,
+  onOpen,
   showDir = false,
 }: {
   file: FileChange;
@@ -121,6 +126,7 @@ function FileRow({
   maxChurn: number;
   selected: boolean;
   onSelect: (path: string) => void;
+  onOpen?: (path: string) => void;
   showDir?: boolean;
 }) {
   const slash = file.path.lastIndexOf("/");
@@ -130,7 +136,14 @@ function FileRow({
   const scale = Math.min(1, churn / maxChurn);
   return (
     <li role="treeitem" aria-selected={selected} className={`file-item${selected ? " selected" : ""}`} data-path={file.path}>
-      <button type="button" className="file-row" style={{ paddingLeft: depth * 16 + 8 }} onClick={() => onSelect(file.path)}>
+      <button
+        type="button"
+        className="file-row"
+        style={{ paddingLeft: depth * 16 + 8 }}
+        onClick={() => onSelect(file.path)}
+        onDoubleClick={() => onOpen?.(file.path)}
+        title={onOpen ? "Click: diff · Double-click: whole file with blame" : undefined}
+      >
         <span className={`status status-${file.status === "?" ? "untracked" : file.status}`} title={STATUS_LABEL[file.status]}>
           {file.status === "?" ? "U" : file.status}
         </span>

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { diffApi, type ChangesetSelector, type FileChange, type FileDiff, type Worktree } from "../api";
+import { blameApi, diffApi, type Blame, type BlameCommit, type ChangesetSelector, type FileChange, type FileDiff, type Worktree } from "../api";
+import { relativeTime } from "../lib/time";
 import { languageFor, mergePieces, tokenizeLines, type LineTokens } from "./highlight";
 import { buildRows, EXPAND_STEP, hunkStarts, type GapRow, type GapState, type LineRow, type Row } from "./rows";
 import { wordDiff, type Segment } from "./wordDiff";
@@ -12,6 +13,13 @@ interface Props {
   selector: ChangesetSelector;
   file: FileChange;
   scheme?: "light" | "dark";
+  /** Show the entire file (all context expanded) instead of just hunks. */
+  wholeFile?: boolean;
+  onWholeFileChange?: (v: boolean) => void;
+  /** Show inline blame for the hovered/selected line. */
+  blame?: boolean;
+  onBlameChange?: (v: boolean) => void;
+  onSelectCommit?: (sha: string) => void;
   mode: DiffMode;
   onModeChange: (m: DiffMode) => void;
   ignoreWhitespace: boolean;
@@ -20,7 +28,7 @@ interface Props {
 
 const fmtBytes = (n: number) => (n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`);
 
-export function DiffView({ worktree, selector, file, scheme = "light", mode, onModeChange, ignoreWhitespace, onIgnoreWhitespaceChange }: Props) {
+export function DiffView({ worktree, selector, file, scheme = "light", wholeFile = false, onWholeFileChange, blame = false, onBlameChange, onSelectCommit, mode, onModeChange, ignoreWhitespace, onIgnoreWhitespaceChange }: Props) {
   const query = useQuery({
     queryKey: ["diff", worktree.path, selector, file.path, file.oldPath ?? "", ignoreWhitespace],
     queryFn: () => diffApi.file(worktree.path, selector, file.path, file.oldPath, { ignoreWhitespace }),
@@ -28,7 +36,30 @@ export function DiffView({ worktree, selector, file, scheme = "light", mode, onM
   });
   const [gaps, setGaps] = useState<GapState>({});
   const fd = query.data;
-  const rows = useMemo(() => (fd ? buildRows(fd, gaps) : []), [fd, gaps]);
+  // Whole-file mode: every gap fully expanded (only possible with content).
+  const effectiveGaps = useMemo(() => {
+    if (!wholeFile || !fd || fd.truncated || !(fd.old ?? fd.new)) return gaps;
+    const all: GapState = { ...gaps };
+    for (const r of buildRows(fd, {})) if (r.kind === "gap") all[r.id] = { up: r.count + (gaps[r.id]?.up ?? 0), down: gaps[r.id]?.down ?? 0 };
+    return all;
+  }, [wholeFile, fd, gaps]);
+  // Whole-file mode shows the final file only: deleted lines are dropped and
+  // paired changes render just their new side.
+  const rows = useMemo(() => {
+    const all = fd ? buildRows(fd, effectiveGaps) : [];
+    return wholeFile ? all.filter((r) => r.kind !== "line" || r.new) : all;
+  }, [fd, effectiveGaps, wholeFile]);
+  const blameQuery = useQuery({
+    queryKey: ["blame", worktree.path, selector, file.path],
+    queryFn: () => blameApi.file(worktree.path, selector, file.path),
+    enabled: blame && Boolean(fd) && !fd?.binary && fd?.hasNew !== false,
+    staleTime: 60_000,
+  });
+  const [focusLine, setFocusLine] = useState<number | null>(null);
+  const blameCtx: BlameContext | null = useMemo(() => {
+    if (!blame) return null;
+    return { data: blameQuery.data ?? null, focusLine, setFocusLine, onSelectCommit };
+  }, [blame, blameQuery.data, focusLine, onSelectCommit]);
   const starts = useMemo(() => hunkStarts(rows), [rows]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hunkIdx, setHunkIdx] = useState(-1);
@@ -84,12 +115,22 @@ export function DiffView({ worktree, selector, file, scheme = "light", mode, onM
         <label className="check">
           <input type="checkbox" checked={ignoreWhitespace} onChange={(e) => onIgnoreWhitespaceChange(e.target.checked)} /> Ignore whitespace
         </label>
+        {onWholeFileChange && (
+          <label className="check" title="Show the entire file with changes inline (double-click a file)">
+            <input type="checkbox" checked={wholeFile} onChange={(e) => onWholeFileChange(e.target.checked)} disabled={Boolean(fd && (fd.truncated || !(fd.old ?? fd.new)))} /> Whole file
+          </label>
+        )}
+        {onBlameChange && (
+          <label className="check" title="Who changed the hovered line, and when">
+            <input type="checkbox" checked={blame} onChange={(e) => onBlameChange(e.target.checked)} disabled={Boolean(fd && (fd.binary || !fd.hasNew))} /> Blame
+          </label>
+        )}
         {fd && !fd.truncated && fd.hunks.length > 0 && (fd.old ?? fd.new) && (
           <button type="button" className="ghost" onClick={expandAll}>
             Expand all
           </button>
         )}
-        <div className="segmented" role="radiogroup" aria-label="Diff layout">
+        <div className="segmented" role="radiogroup" aria-label="Diff layout" hidden={wholeFile}>
           {(["unified", "split"] as DiffMode[]).map((m) => (
             <button key={m} type="button" role="radio" aria-checked={mode === m} className={mode === m ? "on" : ""} onClick={() => onModeChange(m)}>
               {m === "unified" ? "Unified" : "Side by side"}
@@ -101,6 +142,11 @@ export function DiffView({ worktree, selector, file, scheme = "light", mode, onM
       {query.isError && (
         <p role="alert" className="error">
           Could not load diff: {query.error.message}
+        </p>
+      )}
+      {blame && blameQuery.isError && (
+        <p role="alert" className="error">
+          Could not load blame: {blameQuery.error.message}
         </p>
       )}
       {fd && (
@@ -115,10 +161,47 @@ export function DiffView({ worktree, selector, file, scheme = "light", mode, onM
           {!fd.binary && fd.hunks.length === 0 && (
             <p className="diff-notice">{churn === 0 && !ignoreWhitespace ? "No textual changes." : "No changes to show" + (ignoreWhitespace ? " once whitespace is ignored." : ".")}</p>
           )}
-          {!fd.binary && fd.hunks.length > 0 && (mode === "split" ? <SplitTable rows={rows} onExpand={expand} hl={highlight} /> : <UnifiedTable rows={rows} onExpand={expand} hl={highlight} />)}
+          {!fd.binary && fd.hunks.length > 0 && (mode === "split" && !wholeFile ? <SplitTable rows={rows} onExpand={expand} hl={highlight} blame={blameCtx} /> : <UnifiedTable rows={rows} onExpand={expand} hl={highlight} blame={blameCtx} newOnly={wholeFile} />)}
         </div>
       )}
     </section>
+  );
+}
+
+interface BlameContext {
+  data: Blame | null;
+  focusLine: number | null;
+  setFocusLine: (n: number | null) => void;
+  onSelectCommit?: (sha: string) => void;
+}
+
+function blameFor(ctx: BlameContext | null, newNo: number | undefined): BlameCommit | null {
+  if (!ctx?.data || !newNo) return null;
+  const sha = ctx.data.lines[newNo - 1];
+  return sha ? ctx.data.commits[sha] ?? null : null;
+}
+
+function blameTitle(c: BlameCommit): string {
+  const when = c.time ? new Date(c.time * 1000).toLocaleString() : "";
+  return c.uncommitted ? "Uncommitted change" : `${c.author} <${c.email}>\n${when}\n${c.sha.slice(0, 7)} ${c.summary}`;
+}
+
+/** GitLens-style trailing note for the focused line. */
+function BlameNote({ ctx, newNo }: { ctx: BlameContext | null; newNo: number | undefined }) {
+  if (!ctx || ctx.focusLine !== newNo) return null;
+  const c = blameFor(ctx, newNo);
+  if (!c) return ctx.data ? null : <span className="blame-note muted">loading blame…</span>;
+  const text = c.uncommitted ? "Uncommitted changes" : `${c.author}, ${relativeTime(c.time)} · ${c.summary}`;
+  return (
+    <span className="blame-note" title={blameTitle(c)} data-testid="blame-note">
+      {c.uncommitted || !ctx.onSelectCommit ? (
+        text
+      ) : (
+        <button type="button" className="blame-link" onClick={() => ctx.onSelectCommit?.(c.sha)}>
+          {text}
+        </button>
+      )}
+    </span>
   );
 }
 
@@ -237,7 +320,7 @@ function GapCells({ gap, onExpand, colSpan }: { gap: GapRow; onExpand: (g: GapRo
 
 const lineClass = (t?: " " | "+" | "-") => (t === "+" ? "add" : t === "-" ? "del" : "ctx");
 
-function UnifiedTable({ rows, onExpand, hl }: { rows: Row[]; onExpand: (g: GapRow, d: "up" | "down" | "all") => void; hl: Highlight }) {
+function UnifiedTable({ rows, onExpand, hl, blame, newOnly = false }: { rows: Row[]; onExpand: (g: GapRow, d: "up" | "down" | "all") => void; hl: Highlight; blame: BlameContext | null; newOnly?: boolean }) {
   const wd = useWordDiffs(rows);
   return (
     <table className="diff-table unified">
@@ -257,8 +340,12 @@ function UnifiedTable({ rows, onExpand, hl }: { rows: Row[]; onExpand: (g: GapRo
             ];
           const out = [];
           const seg = wd.get(r.key);
-          if (r.old) out.push(<LineTr key={`${r.key}o`} row={r} side={r.old} otherNo={r.old.type === " " ? r.new?.no : undefined} segments={seg?.a} tokens={tokensAt(hl.old, r.old.no) ?? (r.old.type === " " ? tokensAt(hl.new, r.new?.no) : undefined)} index={i} />);
-          if (r.new && r.new.type !== " ") out.push(<LineTr key={`${r.key}n`} row={r} side={r.new} segments={seg?.b} tokens={tokensAt(hl.new, r.new.no)} index={i} />);
+          if (newOnly) {
+            if (r.new) out.push(<LineTr key={`${r.key}n`} row={r} side={r.new} otherNo={r.old?.no} segments={r.new.type === "+" ? seg?.b : undefined} tokens={tokensAt(hl.new, r.new.no)} index={i} blame={blame} newNo={r.new.no} />);
+            return out;
+          }
+          if (r.old) out.push(<LineTr key={`${r.key}o`} row={r} side={r.old} otherNo={r.old.type === " " ? r.new?.no : undefined} segments={seg?.a} tokens={tokensAt(hl.old, r.old.no) ?? (r.old.type === " " ? tokensAt(hl.new, r.new?.no) : undefined)} index={i} blame={blame} newNo={r.old.type === " " ? r.new?.no : undefined} />);
+          if (r.new && r.new.type !== " ") out.push(<LineTr key={`${r.key}n`} row={r} side={r.new} segments={seg?.b} tokens={tokensAt(hl.new, r.new.no)} index={i} blame={blame} newNo={r.new.no} />);
           return out;
         })}
       </tbody>
@@ -266,24 +353,36 @@ function UnifiedTable({ rows, onExpand, hl }: { rows: Row[]; onExpand: (g: GapRo
   );
 }
 
-function LineTr({ row, side, otherNo, segments, tokens, index }: { row: LineRow; side: NonNullable<LineRow["old"]>; otherNo?: number; segments?: Segment[]; tokens?: LineTokens; index: number }) {
+function LineTr({ row, side, otherNo, segments, tokens, index, blame, newNo: blameNo }: { row: LineRow; side: NonNullable<LineRow["old"]>; otherNo?: number; segments?: Segment[]; tokens?: LineTokens; index: number; blame: BlameContext | null; newNo?: number }) {
   const cls = lineClass(side.type);
-  const oldNo = side.type === "+" ? "" : side.no;
-  const newNo = side.type === "-" ? "" : side.type === " " ? otherNo ?? side.no : side.no;
+  const isNewSide = blameNo !== undefined && blameNo === side.no && side.type !== "-";
+  const oldNo = side.type === "+" ? "" : isNewSide ? otherNo ?? side.no : side.no;
+  const newNo = side.type === "-" ? "" : side.type === " " && !isNewSide ? otherNo ?? side.no : side.no;
+  const bc = blameFor(blame, blameNo);
+  const focused = blame && blameNo !== undefined && blame.focusLine === blameNo;
   return (
-    <tr className={`line ${cls}`} data-row={index} data-key={row.key}>
+    <tr
+      className={`line ${cls}${focused ? " focused" : ""}`}
+      data-row={index}
+      data-key={row.key}
+      onMouseEnter={blame && blameNo ? () => blame.setFocusLine(blameNo) : undefined}
+      onClick={blame && blameNo ? () => blame.setFocusLine(blameNo) : undefined}
+    >
       <td className="no">{oldNo}</td>
-      <td className="no">{newNo}</td>
+      <td className="no" title={bc ? blameTitle(bc) : undefined}>
+        {newNo}
+      </td>
       <td className="code">
         <span className="sign">{side.type === " " ? " " : side.type}</span>
         <Code text={side.text} segments={segments} tokens={tokens} />
         {side.nonl && <span className="nonl" title="No newline at end of file">⏎</span>}
+        <BlameNote ctx={blame} newNo={blameNo} />
       </td>
     </tr>
   );
 }
 
-function SplitTable({ rows, onExpand, hl }: { rows: Row[]; onExpand: (g: GapRow, d: "up" | "down" | "all") => void; hl: Highlight }) {
+function SplitTable({ rows, onExpand, hl, blame }: { rows: Row[]; onExpand: (g: GapRow, d: "up" | "down" | "all") => void; hl: Highlight; blame: BlameContext | null }) {
   const wd = useWordDiffs(rows);
   return (
     <table className="diff-table split">
@@ -302,17 +401,30 @@ function SplitTable({ rows, onExpand, hl }: { rows: Row[]; onExpand: (g: GapRow,
               </tr>
             );
           const seg = wd.get(r.key);
+          const newNo = r.new?.no;
+          const bc = blameFor(blame, newNo);
+          const focused = blame && newNo !== undefined && blame.focusLine === newNo;
           return (
-            <tr key={r.key} className="line" data-row={i} data-key={r.key}>
+            <tr
+              key={r.key}
+              className={`line${focused ? " focused" : ""}`}
+              data-row={i}
+              data-key={r.key}
+              onMouseEnter={blame && newNo ? () => blame.setFocusLine(newNo) : undefined}
+              onClick={blame && newNo ? () => blame.setFocusLine(newNo) : undefined}
+            >
               <td className={`no ${r.old ? lineClass(r.old.type) : "empty"}`}>{r.old?.no ?? ""}</td>
               <td className={`code ${r.old ? lineClass(r.old.type) : "empty"}`}>
                 {r.old && <Code text={r.old.text} segments={seg?.a} tokens={tokensAt(hl.old, r.old.no) ?? (r.old.type === " " ? tokensAt(hl.new, r.new?.no) : undefined)} />}
                 {r.old?.nonl && <span className="nonl" title="No newline at end of file">⏎</span>}
               </td>
-              <td className={`no ${r.new ? lineClass(r.new.type) : "empty"}`}>{r.new?.no ?? ""}</td>
+              <td className={`no ${r.new ? lineClass(r.new.type) : "empty"}`} title={bc ? blameTitle(bc) : undefined}>
+                {r.new?.no ?? ""}
+              </td>
               <td className={`code ${r.new ? lineClass(r.new.type) : "empty"}`}>
                 {r.new && <Code text={r.new.text} segments={seg?.b} tokens={tokensAt(hl.new, r.new.no)} />}
                 {r.new?.nonl && <span className="nonl" title="No newline at end of file">⏎</span>}
+                <BlameNote ctx={blame} newNo={newNo} />
               </td>
             </tr>
           );

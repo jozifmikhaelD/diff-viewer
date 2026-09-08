@@ -64,6 +64,15 @@ describe("FileList", () => {
     expect(screen.getByText(/No files match/)).toBeInTheDocument();
   });
 
+  it("double-clicking a file opens it", async () => {
+    const onOpen = vi.fn();
+    const onSelect = vi.fn();
+    render(<Filtered files={files} selectedPath={null} onSelect={onSelect} onOpen={onOpen} view="flat" onViewChange={() => {}} />);
+    await userEvent.setup().dblClick(screen.getByRole("button", { name: /app\.ts/ }));
+    expect(onOpen).toHaveBeenCalledWith("src/app.ts");
+    expect(onSelect).toHaveBeenCalled();
+  });
+
   it("shows the no-changes state", () => {
     render(<Filtered files={[]} selectedPath={null} onSelect={() => {}} view="tree" onViewChange={() => {}} />);
     expect(screen.getByText("No changes.")).toBeInTheDocument();

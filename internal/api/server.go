@@ -66,6 +66,7 @@ func NewWithOptions(repo *git.Repo, static fs.FS, version string, bus *watch.Bus
 	s.mux.HandleFunc("GET /api/diff", s.handleDiff)
 	s.mux.HandleFunc("GET /api/events", s.handleEvents)
 	s.mux.HandleFunc("GET /api/deps", s.handleDeps)
+	s.mux.HandleFunc("GET /api/blame", s.handleBlame)
 	s.mux.HandleFunc("GET /api/recent", s.handleRecent)
 	s.mux.HandleFunc("POST /api/open", s.handleOpen)
 	s.mux.HandleFunc("GET /api/fs/complete", s.handleFSComplete)

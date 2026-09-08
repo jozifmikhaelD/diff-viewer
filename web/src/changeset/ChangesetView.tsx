@@ -54,6 +54,14 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
   const [ws, setWs] = usePersisted<"0" | "1">("void.ignoreWhitespace", "0", ["0", "1"]);
   const [filter, setFilter] = useState("");
   const [pane, setPane] = useState<"diff" | "map">("diff");
+  const [wholeFile, setWholeFile] = useState(false);
+  const [blame, setBlame] = useState(false);
+  const openWhole = (p: string) => {
+    onSelectPath(p);
+    setWholeFile(true);
+    setBlame(true);
+    setPane("diff");
+  };
   const [filesWidth, setFilesWidth, resetFilesWidth] = usePaneWidth({ key: "void.filesWidth", initial: 300, min: 200, max: 800 });
 
   const selector: ChangesetSelector =
@@ -163,6 +171,7 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
               onFilterChange={setFilter}
               selectedPath={current?.path ?? null}
               onSelect={onSelectPath}
+              onOpen={openWhole}
               view={view}
               onViewChange={setView}
             />
@@ -185,6 +194,11 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
                 selector={selector}
                 file={current}
                 scheme={scheme}
+                wholeFile={wholeFile}
+                onWholeFileChange={setWholeFile}
+                blame={blame}
+                onBlameChange={setBlame}
+                onSelectCommit={onSelectionChange ? (sha) => onSelectionChange({ kind: "commit", sha }) : undefined}
                 mode={diffMode}
                 onModeChange={setDiffMode}
                 ignoreWhitespace={ws === "1"}
