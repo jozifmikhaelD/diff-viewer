@@ -31,30 +31,31 @@ func TestTouchForgetAndPersistence(t *testing.T) {
 	if err != nil || len(c.Recent) != 0 {
 		t.Fatalf("empty load = %+v, %v", c, err)
 	}
+	a, b := t.TempDir(), t.TempDir()
 	t0 := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
-	if _, err := s.Touch("/a", t0); err != nil {
+	if _, err := s.Touch(a, t0); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Touch("/b", t0.Add(time.Minute)); err != nil {
+	if _, err := s.Touch(b, t0.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	list, err := s.Touch("/a", t0.Add(2*time.Minute)) // re-open moves to front, no duplicate
+	list, err := s.Touch(a, t0.Add(2*time.Minute)) // re-open moves to front, no duplicate
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(list) != 2 || list[0].Path != "/a" || list[1].Path != "/b" {
+	if len(list) != 2 || list[0].Path != a || list[1].Path != b {
 		t.Errorf("list = %+v", list)
 	}
 	// persisted across stores
 	again, _ := New(path).Load()
-	if len(again.Recent) != 2 || again.Recent[0].Path != "/a" || !again.Recent[0].LastOpen.Equal(t0.Add(2*time.Minute)) {
+	if len(again.Recent) != 2 || again.Recent[0].Path != a || !again.Recent[0].LastOpen.Equal(t0.Add(2*time.Minute)) {
 		t.Errorf("reload = %+v", again.Recent)
 	}
-	if err := s.Forget("/a"); err != nil {
+	if err := s.Forget(a); err != nil {
 		t.Fatal(err)
 	}
 	after, _ := s.Load()
-	if len(after.Recent) != 1 || after.Recent[0].Path != "/b" {
+	if len(after.Recent) != 1 || after.Recent[0].Path != b {
 		t.Errorf("after forget = %+v", after.Recent)
 	}
 	if st, err := os.Stat(path); err != nil || st.Mode().Perm() != 0o600 {
@@ -62,17 +63,44 @@ func TestTouchForgetAndPersistence(t *testing.T) {
 	}
 }
 
+func TestTouchPrunesVanishedDirectories(t *testing.T) {
+	s := New(filepath.Join(t.TempDir(), "config.json"))
+	gone := filepath.Join(t.TempDir(), "gone")
+	if err := os.Mkdir(gone, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Touch(gone, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(gone); err != nil {
+		t.Fatal(err)
+	}
+	keep := t.TempDir()
+	list, err := s.Touch(keep, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].Path != keep {
+		t.Errorf("vanished dir not pruned: %+v", list)
+	}
+}
+
 func TestCapAndCorruptFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	s := New(path)
 	base := time.Now()
+	root := t.TempDir()
 	for i := 0; i < MaxRecent+5; i++ {
-		if _, err := s.Touch(filepath.Join("/r", string(rune('a'+i))), base.Add(time.Duration(i)*time.Second)); err != nil {
+		d := filepath.Join(root, string(rune('a'+i)))
+		if err := os.Mkdir(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.Touch(d, base.Add(time.Duration(i)*time.Second)); err != nil {
 			t.Fatal(err)
 		}
 	}
 	c, _ := s.Load()
-	if len(c.Recent) != MaxRecent || c.Recent[0].Path != filepath.Join("/r", string(rune('a'+MaxRecent+4))) {
+	if len(c.Recent) != MaxRecent || c.Recent[0].Path != filepath.Join(root, string(rune('a'+MaxRecent+4))) {
 		t.Errorf("cap: %d entries, first %s", len(c.Recent), c.Recent[0].Path)
 	}
 	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {

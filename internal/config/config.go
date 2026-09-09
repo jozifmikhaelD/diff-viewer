@@ -103,7 +103,8 @@ func (s *Store) save(c *Config) error {
 }
 
 // Touch records path as opened now and returns the updated list, most recent
-// first. Paths are deduplicated and the list is capped at MaxRecent.
+// first. Paths are deduplicated, entries whose directory no longer exists are
+// dropped so they cannot crowd out real ones, and the list is capped at MaxRecent.
 func (s *Store) Touch(path string, now time.Time) ([]Recent, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -114,9 +115,13 @@ func (s *Store) Touch(path string, now time.Time) ([]Recent, error) {
 	kept := make([]Recent, 0, len(c.Recent)+1)
 	kept = append(kept, Recent{Path: path, LastOpen: now})
 	for _, r := range c.Recent {
-		if r.Path != path {
-			kept = append(kept, r)
+		if r.Path == path {
+			continue
 		}
+		if st, err := os.Stat(r.Path); err != nil || !st.IsDir() {
+			continue
+		}
+		kept = append(kept, r)
 	}
 	sort.SliceStable(kept, func(i, j int) bool { return kept[i].LastOpen.After(kept[j].LastOpen) })
 	if len(kept) > MaxRecent {

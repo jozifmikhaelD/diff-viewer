@@ -12,6 +12,7 @@ cleanup() { [ -n "${pid:-}" ] && kill "$pid" 2>/dev/null || true; rm -rf "$fixtu
 trap cleanup EXIT
 
 bash "$root/testdata/mkrepo.sh" "$fixture" >/dev/null
+export VOID_CONFIG_DIR="$fixture/config"
 "$bin" -version
 "$bin" -host 127.0.0.1 -port "$port" "$fixture/repo" >"$fixture/void.log" 2>&1 &
 pid=$!
