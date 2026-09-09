@@ -1144,3 +1144,17 @@ g.node.neighbour .dep-label {
   min-width: 2rem;
   justify-content: center;
 }
+
+.flow-dir {
+  font-size: 9.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  fill: var(--muted);
+}
+
+.deps-toolbar {
+  flex-wrap: wrap;
+  row-gap: 0.3rem;
+}
+.deps-toolbar .spacer {
+  flex: 1 0 1rem;
+}

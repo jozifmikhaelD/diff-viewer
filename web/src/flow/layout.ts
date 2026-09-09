@@ -16,6 +16,8 @@ export interface FlowNode {
   w: number;
   h: number;
   group: string;
+  /** Directory of the file relative to the prefix every file shares ("" at that root). */
+  dir: string;
 }
 
 export interface FlowEdge {
@@ -28,7 +30,7 @@ export interface FlowEdge {
 export interface FlowLayer {
   index: number;
   count: number;
-  /** Most common directory group in the layer. */
+  /** Deepest directory shared by the layer's files (relative), or a "mixed" note. */
   label: string;
 }
 
@@ -38,10 +40,45 @@ export interface FlowLayout {
   layers: FlowLayer[];
   width: number;
   height: number;
+  /** Directory prefix shared by every file, shown once in the toolbar. */
+  commonPrefix: string;
 }
 
-export const NODE_W = 150;
-export const NODE_H = 26;
+export const NODE_W = 170;
+export const NODE_H = 36;
+
+function dirParts(path: string): string[] {
+  const parts = path.split("/");
+  parts.pop();
+  return parts;
+}
+
+/** Longest common directory prefix of the given paths, as segments. */
+export function commonDir(paths: readonly string[]): string[] {
+  if (paths.length === 0) return [];
+  let common = dirParts(paths[0]);
+  for (const p of paths.slice(1)) {
+    const d = dirParts(p);
+    let k = 0;
+    while (k < common.length && k < d.length && common[k] === d[k]) k++;
+    common = common.slice(0, k);
+    if (common.length === 0) break;
+  }
+  return common;
+}
+
+/** Heading for a set of files: their shared directory, or the dominant one plus how many others. */
+export function layerLabel(paths: readonly string[], strip: readonly string[]): string {
+  const rel = (p: string) => dirParts(p).slice(strip.length).join("/") || "(root)";
+  const shared = commonDir(paths).slice(strip.length).join("/");
+  const dirs = new Set(paths.map(rel));
+  if (dirs.size === 1) return [...dirs][0];
+  if (shared) return `${shared}/… (${dirs.size} dirs)`;
+  const tally = new Map<string, number>();
+  for (const p of paths) tally.set(rel(p), (tally.get(rel(p)) ?? 0) + 1);
+  const top = [...tally.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
+  return `${top} +${dirs.size - 1} more`;
+}
 export const COL_GAP = 90;
 export const ROW_GAP = 12;
 
@@ -121,6 +158,7 @@ export function orderLayers(paths: readonly string[], layers: Map<string, number
 /** Full layout. `groupOf` supplies directory labels for layers. */
 export function layoutFlow(nodes: readonly DepNode[], edges: readonly DepEdge[], groupOf: (path: string) => string): FlowLayout {
   const paths = nodes.map((n) => n.path);
+  const strip = commonDir(paths);
   const flowEdges = breakCycles(paths, edges);
   const layers = assignLayers(paths, flowEdges);
   const order = orderLayers(paths, layers, flowEdges);
@@ -144,17 +182,15 @@ export function layoutFlow(nodes: readonly DepNode[], edges: readonly DepEdge[],
       w: NODE_W,
       h: NODE_H,
       group: groupOf(p),
+      dir: dirParts(p).slice(strip.length).join("/"),
     };
   });
   const layerMeta: FlowLayer[] = [];
   for (let l = 0; l < layerCount; l++) {
     const members = out.filter((n) => n.layer === l);
-    const tally = new Map<string, number>();
-    for (const m of members) tally.set(m.group, (tally.get(m.group) ?? 0) + 1);
-    const label = [...tally.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? "";
-    layerMeta.push({ index: l, count: members.length, label });
+    layerMeta.push({ index: l, count: members.length, label: layerLabel(members.map((m) => m.path), strip) });
   }
-  return { nodes: out, edges: flowEdges, layers: layerMeta, width: 20 + layerCount * (NODE_W + COL_GAP) - COL_GAP + 20, height };
+  return { nodes: out, edges: flowEdges, layers: layerMeta, width: 20 + layerCount * (NODE_W + COL_GAP) - COL_GAP + 20, height, commonPrefix: strip.join("/") };
 }
 
 /** Mermaid flowchart (LR) with one subgraph per directory group. */

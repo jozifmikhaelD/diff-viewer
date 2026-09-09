@@ -40,6 +40,8 @@ describe("FlowView", () => {
     await waitFor(() => expect(document.querySelectorAll("g.flow-node")).toHaveLength(3));
     const layers = screen.getAllByTestId("flow-layer").map((l) => l.textContent);
     expect(layers).toEqual(["pages · 1", "components · 1", "lib · 1"]);
+    expect(screen.getByText("src/")).toBeInTheDocument(); // shared prefix shown once
+    expect(document.querySelector('g.flow-node[data-path="src/lib/api.ts"] .flow-dir')).toHaveTextContent("lib");
     expect(document.querySelectorAll("path.flow-edge")).toHaveLength(2);
     const home = document.querySelector('g.flow-node[data-path="src/pages/home.tsx"]')!;
     const api = document.querySelector('g.flow-node[data-path="src/lib/api.ts"]')!;

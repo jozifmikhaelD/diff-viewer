@@ -29,6 +29,12 @@ const STATUS_COLOR: Record<string, string> = {
 };
 const statusColor = (s: FileStatus | undefined) => STATUS_COLOR[s ?? "M"] ?? "var(--warn)";
 
+/** Directory line inside a box: keep the tail, which is the informative part. */
+function shortDir(dir: string): string {
+  if (!dir) return "(root)";
+  return dir.length > 28 ? "…" + dir.slice(-27) : dir;
+}
+
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
   useEffect(() => {
@@ -144,7 +150,17 @@ export function FlowView({ worktree, selector, changedPaths, selectedPath, onSel
     <section className="deps flow" aria-label="Flow diagram">
       <header className="diff-toolbar deps-toolbar">
         <h3 className="diff-path">Flow</h3>
-        {summary && <span className="deps-summary">{summary}</span>}
+        {summary && (
+          <span className="deps-summary">
+            {summary}
+            {layout?.commonPrefix && (
+              <>
+                {" · in "}
+                <code title="Directory shared by every file shown; column headings are relative to it">{layout.commonPrefix}/</code>
+              </>
+            )}
+          </span>
+        )}
         <span className="spacer" />
         <label className="check">
           Depth
@@ -239,8 +255,11 @@ export function FlowView({ worktree, selector, changedPaths, selectedPath, onSel
                   <title>{`${n.path}${n.changed ? `\n${n.status ?? ""} +${n.additions} -${n.deletions}` : "\nunchanged neighbour"}`}</title>
                   <rect className="flow-box" width={d.w} height={d.h} rx={5} />
                   <rect width={4} height={d.h} rx={2} fill={n.changed ? statusColor(n.status) : "var(--muted)"} />
-                  <text x={10} y={NODE_H / 2 + 4} className="flow-label">
-                    {name.length > 22 ? name.slice(0, 21) + "…" : name}
+                  <text x={10} y={15} className="flow-label">
+                    {name.length > 25 ? name.slice(0, 24) + "…" : name}
+                  </text>
+                  <text x={10} y={NODE_H - 8} className="flow-dir">
+                    {shortDir(d.dir)}
                   </text>
                 </g>
               );

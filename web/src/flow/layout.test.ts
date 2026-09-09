@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DepNode } from "../api";
-import { assignLayers, breakCycles, layoutFlow, orderLayers, toMermaid } from "./layout";
+import { assignLayers, breakCycles, commonDir, layerLabel, layoutFlow, orderLayers, toMermaid } from "./layout";
 
 const n = (path: string, changed = true): DepNode => ({ path, changed, status: changed ? "M" : undefined, additions: 1, deletions: 0, depth: changed ? 0 : 1 });
 const groupOf = (p: string) => p.split("/").slice(0, -1).join("/") || "(root)";
@@ -60,11 +60,14 @@ describe("flow layout", () => {
       ],
       groupOf,
     );
+    // headings are relative to the shared prefix "src"
+    expect(layout.commonPrefix).toBe("src");
     expect(layout.layers.map((l) => [l.index, l.count, l.label])).toEqual([
-      [0, 1, "src/pages"],
-      [1, 2, "src/components"],
-      [2, 1, "src/lib"],
+      [0, 1, "pages"],
+      [1, 2, "components"],
+      [2, 1, "lib"],
     ]);
+    expect(layout.nodes.find((x) => x.path.endsWith("card.tsx"))!.dir).toBe("components");
     const home = layout.nodes.find((x) => x.path.endsWith("home.tsx"))!;
     const api = layout.nodes.find((x) => x.path.endsWith("api.ts"))!;
     expect(home.x).toBeLessThan(api.x);
@@ -93,10 +96,21 @@ describe("flow layout", () => {
     expect(m).toContain("class na_x_ts changed;");
   });
 
+  it("labels columns by the directory their files share, or says how mixed they are", () => {
+    expect(commonDir(["a/b/x.ts", "a/b/c/y.ts"])).toEqual(["a", "b"]);
+    expect(commonDir(["x.ts", "a/y.ts"])).toEqual([]);
+    const strip = ["frontend", "lib"];
+    expect(layerLabel(["frontend/lib/queue/a.ts", "frontend/lib/queue/b.ts"], strip)).toBe("queue");
+    expect(layerLabel(["frontend/lib/queue/ui/a.ts", "frontend/lib/queue/svc/b.ts"], strip)).toBe("queue/… (2 dirs)");
+    expect(layerLabel(["frontend/lib/queue/a.ts", "frontend/lib/queue/b.ts", "frontend/lib/auth/c.ts"], strip)).toBe("queue +1 more");
+    expect(layerLabel(["frontend/lib/README.md"], strip)).toBe("(root)");
+  });
+
   it("handles an empty graph", () => {
     const layout = layoutFlow([], [], groupOf);
     expect(layout.nodes).toEqual([]);
     expect(layout.layers).toEqual([]);
+    expect(layout.commonPrefix).toBe("");
     expect(toMermaid(layout)).toBe("flowchart LR");
   });
 });
