@@ -7,6 +7,13 @@ interface Props {
   onOpened: () => void;
 }
 
+interface Suggestion {
+  name: string;
+  path: string;
+  repo: boolean;
+  recent?: boolean;
+}
+
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
   useEffect(() => {
@@ -56,7 +63,15 @@ export function RepoSwitcher({ current, onOpened }: Props) {
     };
   }, [open]);
 
-  const entries = path.trim() ? suggestions.data?.entries ?? [] : [];
+  // Suggestions: matching recent repositories first (all of them when the
+  // field is empty), then directory completions for the typed path.
+  const others = (recent.data?.recent ?? []).filter((r) => r.path !== current);
+  const q = path.trim().toLowerCase();
+  const recentEntries: Suggestion[] = others
+    .filter((r) => !q || r.path.toLowerCase().includes(q) || (r.path.split("/").pop() ?? "").toLowerCase().includes(q))
+    .map((r) => ({ name: r.path.split("/").filter(Boolean).pop() ?? r.path, path: r.path, repo: true, recent: true }));
+  const fsEntries: Suggestion[] = q ? (suggestions.data?.entries ?? []).filter((e) => !recentEntries.some((r) => r.path === e.path)) : [];
+  const entries: Suggestion[] = [...recentEntries, ...fsEntries];
   const accept = (i: number) => {
     const e = entries[i];
     if (!e) return;
@@ -65,8 +80,6 @@ export function RepoSwitcher({ current, onOpened }: Props) {
     else setPath(e.path + "/");
     setActive(-1);
   };
-
-  const others = (recent.data?.recent ?? []).filter((r) => r.path !== current);
   return (
     <div className="repo-switcher" ref={ref}>
       <button type="button" className="ghost" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen((o) => !o)}>
@@ -84,7 +97,7 @@ export function RepoSwitcher({ current, onOpened }: Props) {
             <input
               type="text"
               aria-label="Repository path"
-              placeholder="/path/to/repo  (Tab completes)"
+              placeholder="Recent repos, or type a path (Tab completes)"
               value={path}
               onChange={(e) => {
                 setPath(e.target.value);
@@ -117,7 +130,7 @@ export function RepoSwitcher({ current, onOpened }: Props) {
             </button>
           </form>
           {entries.length > 0 && (
-            <ul className="suggestions" id="path-suggestions" role="listbox" aria-label="Directories">
+            <ul className="suggestions" id="path-suggestions" role="listbox" aria-label="Repositories and directories">
               {entries.map((e, i) => (
                 <li
                   key={e.path}
@@ -125,17 +138,19 @@ export function RepoSwitcher({ current, onOpened }: Props) {
                   role="option"
                   aria-selected={i === active}
                   className={i === active ? "active" : ""}
+                  title={e.path}
                   onMouseDown={(ev) => ev.preventDefault()}
                   onClick={() => accept(i)}
                 >
                   <span className={`fs-icon${e.repo ? " repo" : ""}`} aria-hidden="true">
-                    {e.repo ? "◆" : "▸"}
+                    {e.recent ? "↺" : e.repo ? "◆" : "▸"}
                   </span>
                   <span className="recent-name">{e.name}</span>
-                  {e.repo && <span className="fs-tag">git repo</span>}
+                  {e.recent && <span className="recent-path">{e.path}</span>}
+                  <span className="fs-tag">{e.recent ? "recent" : e.repo ? "git repo" : ""}</span>
                 </li>
               ))}
-              {suggestions.data?.more && <li className="empty">…more; keep typing</li>}
+              {q && suggestions.data?.more && <li className="empty">…more; keep typing</li>}
             </ul>
           )}
           {mutation.isError && (
@@ -144,19 +159,7 @@ export function RepoSwitcher({ current, onOpened }: Props) {
             </p>
           )}
           {recent.isPending && <p role="status" className="empty">Loading recent…</p>}
-          {recent.data && others.length === 0 && entries.length === 0 && <p className="empty">No other recent repositories.</p>}
-          {others.length > 0 && entries.length === 0 && (
-            <ul className="recent-list" aria-label="Recent repositories">
-              {others.map((r) => (
-                <li key={r.path}>
-                  <button type="button" onClick={() => mutation.mutate(r.path)} title={r.path} disabled={mutation.isPending}>
-                    <span className="recent-name">{r.path.split("/").filter(Boolean).pop()}</span>
-                    <span className="recent-path">{r.path}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          {recent.data && entries.length === 0 && !q && <p className="empty">No other recent repositories yet. Type a path to browse.</p>}
         </div>
       )}
     </div>

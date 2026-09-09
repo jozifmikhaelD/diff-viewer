@@ -1022,6 +1022,11 @@ g.node.neighbour .dep-label {
   cursor: pointer;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.82rem;
+  min-width: 0;
+}
+.suggestions .recent-path {
+  flex: 1;
+  min-width: 0;
 }
 .suggestions li.active,
 .suggestions li[role="option"]:hover {

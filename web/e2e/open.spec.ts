@@ -21,12 +21,12 @@ test("Open… switches to another repository by path and lists it as recent", as
   await expect(page.locator(".repo-root")).toHaveAttribute("title", wt);
   await expect(page.getByRole("listbox", { name: "History" }).locator(".ref-head", { hasText: "feature" })).toBeVisible();
 
-  // the previous repo is offered in the recent list
+  // the previous repo is offered as a recent suggestion as soon as the field opens
   await expect(page.getByRole("dialog")).toBeHidden();
   await page.getByRole("button", { name: "Open…" }).click();
-  const recent = page.getByRole("list", { name: "Recent repositories" });
-  await expect(recent).toContainText(original);
-  await recent.getByRole("button", { name: /repo$/ }).first().click();
+  const recent = page.getByRole("listbox", { name: "Repositories and directories" });
+  await expect(recent.getByRole("option", { name: /recent/ }).first()).toContainText(original);
+  await recent.getByRole("option", { name: new RegExp(original.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) }).click();
   await expect(page.locator(".repo-root")).toHaveAttribute("title", original);
 
   // typing a parent path suggests directories, marking git repos
@@ -35,7 +35,7 @@ test("Open… switches to another repository by path and lists it as recent", as
   await expect(page.getByRole("dialog", { name: "Open repository" })).toBeVisible();
   const parent = original.slice(0, original.lastIndexOf("/") + 1);
   await page.getByRole("combobox", { name: "Repository path" }).fill(parent + "re");
-  const list = page.getByRole("listbox", { name: "Directories" });
+  const list = page.getByRole("listbox", { name: "Repositories and directories" });
   await expect(list.getByRole("option", { name: /repo/ })).toContainText("git repo");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");

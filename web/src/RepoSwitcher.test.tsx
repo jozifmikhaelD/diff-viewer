@@ -9,6 +9,26 @@ import { renderWithQuery } from "./test/render";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("RepoSwitcher", () => {
+  it("shows recent repos in the field's suggestions, filters them as you type, and opens one", async () => {
+    const calls = mockFetch({
+      "/api/recent": { body: { recent: [{ path: "/work/repo", lastOpen: "2026-09-08T12:00:00Z" }, { path: "/work/other", lastOpen: "2026-09-08T11:00:00Z" }, { path: "/home/me/void", lastOpen: "2026-09-07T11:00:00Z" }] } },
+      "/api/fs/complete": { body: { dir: "/", entries: [], more: false } },
+      "/api/open": { body: { ...repoInfo, root: "/home/me/void" } },
+    });
+    const onOpened = vi.fn();
+    renderWithQuery(<RepoSwitcher current="/work/repo" onOpened={onOpened} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Open…" }));
+    const list = await screen.findByRole("listbox", { name: "Repositories and directories" });
+    // current repo excluded, both others offered with a "recent" tag before typing anything
+    expect(within(list).getAllByRole("option").map((o) => o.textContent)).toEqual(["↺other/work/otherrecent", "↺void/home/me/voidrecent"]);
+    await user.type(screen.getByRole("combobox", { name: "Repository path" }), "vo");
+    await vi.waitFor(() => expect(within(screen.getByRole("listbox")).getAllByRole("option")).toHaveLength(1));
+    await user.keyboard("{ArrowDown}{Enter}");
+    await vi.waitFor(() => expect(onOpened).toHaveBeenCalled());
+    expect(calls).toContain("/api/open");
+  });
+
   it("lists recent repos except the current one and opens by click or path", async () => {
     const calls = mockFetch({
       "/api/recent": { body: { recent: [{ path: "/work/repo", lastOpen: "2026-09-08T12:00:00Z" }, { path: "/work/other", lastOpen: "2026-09-08T11:00:00Z" }] } },
@@ -20,10 +40,10 @@ describe("RepoSwitcher", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Open…" }));
     const dialog = await screen.findByRole("dialog", { name: "Open repository" });
-    const list = await within(dialog).findByRole("list", { name: "Recent repositories" });
-    expect(within(list).getAllByRole("listitem")).toHaveLength(1);
+    const list = await within(dialog).findByRole("listbox", { name: "Repositories and directories" });
+    expect(within(list).getAllByRole("option")).toHaveLength(1);
     expect(within(list).getByText("other")).toBeInTheDocument();
-    await user.click(within(list).getByRole("button", { name: /other/ }));
+    await user.click(within(list).getByRole("option", { name: /other/ }));
     await vi.waitFor(() => expect(onOpened).toHaveBeenCalled());
     expect(calls).toContain("/api/open");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -50,11 +70,11 @@ describe("RepoSwitcher", () => {
     await user.click(screen.getByRole("button", { name: "Open…" }));
     const input = await screen.findByRole("combobox", { name: "Repository path" });
     await user.type(input, "/home/me/D");
-    const list = await screen.findByRole("listbox", { name: "Directories" });
+    const list = await screen.findByRole("listbox", { name: "Repositories and directories" });
     expect(within(list).getByRole("option", { name: /Dev/ })).toBeInTheDocument();
     await user.keyboard("{Tab}");
     expect(input).toHaveValue("/home/me/Dev/");
-    await vi.waitFor(() => expect(within(screen.getByRole("listbox", { name: "Directories" })).getAllByRole("option")).toHaveLength(2));
+    await vi.waitFor(() => expect(within(screen.getByRole("listbox", { name: "Repositories and directories" })).getAllByRole("option")).toHaveLength(2));
     expect(screen.getByText("git repo")).toBeInTheDocument();
     await user.keyboard("{ArrowDown}{Enter}");
     await vi.waitFor(() => expect(onOpened).toHaveBeenCalled());
@@ -70,7 +90,7 @@ describe("RepoSwitcher", () => {
     renderWithQuery(<RepoSwitcher current="/work/repo" onOpened={() => {}} />);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Open…" }));
-    expect(await screen.findByText("No other recent repositories.")).toBeInTheDocument();
+    expect(await screen.findByText(/No other recent repositories yet/)).toBeInTheDocument();
     await user.type(screen.getByRole("combobox", { name: "Repository path" }), "/nope{Enter}");
     expect(await screen.findByRole("alert")).toHaveTextContent("not a git repository");
     await user.keyboard("{Escape}");
