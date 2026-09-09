@@ -93,6 +93,7 @@ export function CommitList({ worktree, ref, selection, onSelect, pageSize = 200,
           type="search"
           aria-label="Search commits"
           placeholder="Search commits…  author:name · sha · branch:name"
+          title="Search commit messages. author:name filters by author, a SHA jumps to that commit, branch:name shows one branch"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           spellCheck={false}

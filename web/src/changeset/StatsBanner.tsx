@@ -15,17 +15,17 @@ export function StatsBanner({ totals, languages, children }: Props) {
   return (
     <section className="stats" aria-label="Changeset totals">
       <div className="stats-numbers">
-        <span className="stat">
+        <span className="stat" title="Files added, modified, deleted or renamed in this selection">
           <strong data-testid="stat-files">{fmt.format(totals.files)}</strong> {totals.files === 1 ? "file" : "files"} changed
         </span>
-        <span className="stat stat-add" data-testid="stat-additions">
+        <span className="stat stat-add" data-testid="stat-additions" title="Lines added">
           +{fmt.format(totals.additions)}
         </span>
-        <span className="stat stat-del" data-testid="stat-deletions">
+        <span className="stat stat-del" data-testid="stat-deletions" title="Lines deleted">
           −{fmt.format(totals.deletions)}
         </span>
         {churn > 0 && (
-          <span className="churn-bar" role="img" aria-label={`${Math.round(addPct)}% additions`}>
+          <span className="churn-bar" role="img" aria-label={`${Math.round(addPct)}% additions`} title={`${Math.round(addPct)}% of changed lines are additions`}>
             <span className="churn-add" style={{ width: `${addPct}%` }} />
           </span>
         )}

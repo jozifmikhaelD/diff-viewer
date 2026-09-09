@@ -82,7 +82,7 @@ export function RepoSwitcher({ current, onOpened }: Props) {
   };
   return (
     <div className="repo-switcher" ref={ref}>
-      <button type="button" className="ghost" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen((o) => !o)}>
+      <button type="button" className="ghost" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen((o) => !o)} title="Open another repository: pick a recent one or type a path">
         Open…
       </button>
       {open && (

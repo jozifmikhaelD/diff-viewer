@@ -18,6 +18,7 @@ export function WorkingTreeRow({ worktree, selected, onSelect }: Props) {
       tabIndex={0}
       className={`commit-row working-tree${selected ? " selected" : ""}`}
       style={{ height: ROW_HEIGHT }}
+      title="Uncommitted changes in this worktree: staged, unstaged and untracked files"
       onClick={onSelect}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onSelect();

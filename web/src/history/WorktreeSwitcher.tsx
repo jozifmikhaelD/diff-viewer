@@ -15,12 +15,12 @@ function label(wt: Worktree): string {
 export function WorktreeSwitcher({ worktrees, value, onChange }: Props) {
   if (worktrees.length <= 1) {
     const only = worktrees[0];
-    return only ? <span className="worktree-single" title={only.path}>{label(only)}</span> : null;
+    return only ? <span className="worktree-single" title={`${only.path} (the only worktree)`}>{label(only)}</span> : null;
   }
   return (
     <label className="worktree-switcher">
       <span className="visually-hidden">Worktree</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)} title="Switch worktree">
+      <select value={value} onChange={(e) => onChange(e.target.value)} title="Switch between this repository's worktrees (each has its own branch and uncommitted changes)">
         {worktrees.map((wt) => (
           <option key={wt.path} value={wt.path} disabled={wt.prunable}>
             {label(wt)}

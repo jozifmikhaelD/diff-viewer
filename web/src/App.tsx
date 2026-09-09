@@ -7,7 +7,9 @@ import { useLiveUpdates } from "./live";
 import { RepoSwitcher } from "./RepoSwitcher";
 import { Splitter } from "./Splitter";
 import { usePaneWidth } from "./usePaneWidth";
+import { Shortcuts } from "./Shortcuts";
 import { useTheme, type Theme } from "./theme";
+import { BREAKPOINTS, useMediaQuery } from "./useMediaQuery";
 import { WorktreeSwitcher } from "./history/WorktreeSwitcher";
 
 function selectionKey(sel: NonNullable<Selection>): string {
@@ -31,6 +33,8 @@ export default function App() {
   const [selection, setSelection] = useState<Selection>(null);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [sidebarWidth, setSidebarWidth, resetSidebar] = usePaneWidth({ key: "void.sidebarWidth", initial: 420, min: 260, max: 900 });
+  const phone = useMediaQuery(BREAKPOINTS.phone);
+  const [historyOpen, setHistoryOpen] = useState(true);
 
   const worktrees = repo.data?.worktrees ?? [];
   const current: Worktree | undefined =
@@ -68,18 +72,23 @@ export default function App() {
           />
         )}
         {canCompareBase && (
-          <button type="button" className={`ghost${comparingBase ? " on" : ""}`} onClick={compareBase} title={`Changes on ${current?.branch} since it diverged from ${defaultBranch}`}>
+          <button type="button" className={`ghost${comparingBase ? " on" : ""}`} onClick={compareBase} title={`Compare ${current?.branch} against ${defaultBranch}: everything committed on this branch since it diverged`}>
             {current?.branch} vs {defaultBranch}
           </button>
         )}
         <span className="spacer" />
         {repo.data && <span className="repo-root" title={repo.data.root}>{repo.data.root}</span>}
-        <select className="theme-select" aria-label="Theme" value={theme} onChange={(e) => setTheme(e.target.value as Theme)} title="Colour theme">
+        <Shortcuts />
+        <select className="theme-select" aria-label="Theme" value={theme} onChange={(e) => setTheme(e.target.value as Theme)} title="Colour theme: follow the system, or force light or dark">
           <option value="system">System</option>
           <option value="light">Light</option>
           <option value="dark">Dark</option>
         </select>
-        {health.data && <span className="version">v{health.data.version}</span>}
+        {health.data && (
+          <span className="version" title="void version">
+            v{health.data.version}
+          </span>
+        )}
       </header>
       {repo.isPending && <p role="status">Connecting…</p>}
       {repo.isError && (
@@ -88,11 +97,26 @@ export default function App() {
         </p>
       )}
       {repo.data && current && (
-        <div className="app-body" style={{ gridTemplateColumns: `${sidebarWidth}px 6px 1fr` }}>
-          <aside className="sidebar">
-            <CommitList key={current.path} worktree={current} selection={selection} onSelect={select} />
-          </aside>
-          <Splitter width={sidebarWidth} onChange={setSidebarWidth} onReset={resetSidebar} label="Resize history" min={260} max={900} />
+        <div className={`app-body${phone ? " stacked" : ""}`} style={phone ? undefined : { gridTemplateColumns: `${sidebarWidth}px 6px 1fr` }}>
+          {phone && (
+            <button type="button" className="ghost drawer-toggle" aria-expanded={historyOpen} onClick={() => setHistoryOpen((o) => !o)} title="Show or hide the commit history">
+              {historyOpen ? "Hide history" : "Show history"}
+            </button>
+          )}
+          {(!phone || historyOpen) && (
+            <aside className="sidebar">
+              <CommitList
+                key={current.path}
+                worktree={current}
+                selection={selection}
+                onSelect={(sel) => {
+                  select(sel);
+                  if (phone) setHistoryOpen(false);
+                }}
+              />
+            </aside>
+          )}
+          {!phone && <Splitter width={sidebarWidth} onChange={setSidebarWidth} onReset={resetSidebar} label="Resize history" min={260} max={900} />}
           <main className="content">
             {selection === null ? (
               <p className="empty">Select a commit or the working tree to see its changes.</p>

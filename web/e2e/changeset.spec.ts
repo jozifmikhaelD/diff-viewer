@@ -15,7 +15,7 @@ test("clicking a commit shows totals, languages and the file tree", async ({ pag
 
   const files = main.getByRole("tree");
   await expect(files.getByText("← src/util.ts")).toBeVisible();
-  await expect(files.getByTitle("deleted")).toBeVisible();
+  await expect(files.getByTitle("deleted", { exact: true })).toBeVisible();
   await expect(files.getByText("name with spaces.txt")).toBeVisible();
   await expect(files.getByText("unicodé.txt")).toBeVisible();
 
@@ -33,7 +33,7 @@ test("working tree shows all/staged/unstaged/untracked modes", async ({ page }) 
   const main = page.getByRole("main");
   await expect(main.getByRole("heading", { name: "Working tree" })).toBeVisible();
   await expect(main.getByTestId("stat-files")).toHaveText("3");
-  await expect(main.getByTitle("untracked")).toBeVisible();
+  await expect(main.getByTitle("untracked", { exact: true })).toBeVisible();
 
   await main.getByRole("radio", { name: /Staged/ }).click();
   await expect(main.getByTestId("stat-files")).toHaveText("1");

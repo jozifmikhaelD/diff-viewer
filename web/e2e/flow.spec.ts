@@ -17,7 +17,7 @@ test("the flow pane lays changed files out by import direction and copies Mermai
 
   await flow.getByRole("button", { name: "Copy as Mermaid" }).click();
   await expect(flow.getByRole("button", { name: "Copied" })).toBeVisible();
-  const text = await page.evaluate(() => (navigator as unknown as { clipboard: { readText(): Promise<string> } }).clipboard.readText());
+  const text = await page.evaluate(() => navigator.clipboard.readText());
   expect(text).toContain("flowchart LR");
   expect(text).toContain("feature.ts (A");
 

@@ -241,15 +241,15 @@ export function DepsMap({ worktree, selector, changedPaths, selectedPath, onSele
         <h3 className="diff-path">Map</h3>
         {summary && <span className="deps-summary">{summary}</span>}
         <span className="spacer" />
-        <label className="check">
+        <label className="check" title="How many import hops away from the changed files to include (0 = changed files only)">
           Depth
           <input type="range" min={0} max={2} value={depth} onChange={(e) => setDepth(Number(e.target.value))} aria-label="Neighbour depth" />
           <span className="count">{depth}</span>
         </label>
-        <label className="check">
+        <label className="check" title="Show unchanged files that import, or are imported by, the changed ones">
           <input type="checkbox" checked={showNeighbours} onChange={(e) => setShowNeighbours(e.target.checked)} /> Neighbours
         </label>
-        <label className="check">
+        <label className="check" title="Hide spec, test, story and e2e files">
           <input type="checkbox" checked={hideTests} onChange={(e) => setHideTests(e.target.checked)} /> Hide tests
         </label>
         <ZoomButtons onZoom={(k) => zoomBy(k)} onFit={() => fit(positions)} />

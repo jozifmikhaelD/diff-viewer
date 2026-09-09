@@ -39,6 +39,7 @@ export function FileList({ files, filter, onFilterChange, selectedPath, onSelect
           type="search"
           placeholder="Filter files…"
           aria-label="Filter files"
+          title="Filter the file list, the map and the flow by path (/ focuses this)"
           value={filter}
           onChange={(e) => onFilterChange(e.target.value)}
         />
@@ -51,6 +52,7 @@ export function FileList({ files, filter, onFilterChange, selectedPath, onSelect
               aria-checked={view === v}
               className={view === v ? "on" : ""}
               onClick={() => onViewChange(v)}
+              title={v === "tree" ? "Group files by directory" : "One flat list with full paths"}
             >
               {v === "tree" ? "Tree" : "Flat"}
             </button>
@@ -93,7 +95,7 @@ function TreeRow({
   }
   return (
     <li role="treeitem" aria-expanded={open} className="dir-item">
-      <button type="button" className="dir-row" style={{ paddingLeft: depth * 16 + 8 }} onClick={() => setOpen(!open)}>
+      <button type="button" className="dir-row" style={{ paddingLeft: depth * 16 + 8 }} onClick={() => setOpen(!open)} title={`${node.path}: ${node.files} ${node.files === 1 ? "file" : "files"}, +${node.additions} −${node.deletions}. Click to ${open ? "collapse" : "expand"}`}>
         <span className={`chevron${open ? " open" : ""}`} aria-hidden="true" />
         <span className="dir-name">{node.name}</span>
         <span className="dir-count">{node.files}</span>

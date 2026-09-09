@@ -108,11 +108,11 @@ export function DiffView({ worktree, selector, file, scheme = "light", wholeFile
           )}
           {file.path}
         </h3>
-        <span className="file-stat">
+        <span className="file-stat" title="Lines added and deleted in this file">
           <span className="stat-add">+{file.additions}</span> <span className="stat-del">−{file.deletions}</span>
         </span>
         <span className="spacer" />
-        <label className="check">
+        <label className="check" title="Hide changes that only add or remove whitespace (git diff -w)">
           <input type="checkbox" checked={ignoreWhitespace} onChange={(e) => onIgnoreWhitespaceChange(e.target.checked)} /> Ignore whitespace
         </label>
         {onWholeFileChange && (
@@ -126,13 +126,13 @@ export function DiffView({ worktree, selector, file, scheme = "light", wholeFile
           </label>
         )}
         {fd && !fd.truncated && fd.hunks.length > 0 && (fd.old ?? fd.new) && (
-          <button type="button" className="ghost" onClick={expandAll}>
+          <button type="button" className="ghost" onClick={expandAll} title="Show every unchanged line between hunks">
             Expand all
           </button>
         )}
         <div className="segmented" role="radiogroup" aria-label="Diff layout" hidden={wholeFile}>
           {(["unified", "split"] as DiffMode[]).map((m) => (
-            <button key={m} type="button" role="radio" aria-checked={mode === m} className={mode === m ? "on" : ""} onClick={() => onModeChange(m)}>
+            <button key={m} type="button" role="radio" aria-checked={mode === m} className={mode === m ? "on" : ""} onClick={() => onModeChange(m)} title={m === "unified" ? "Old and new lines in one column" : "Old on the left, new on the right"}>
               {m === "unified" ? "Unified" : "Side by side"}
             </button>
           ))}

@@ -5,6 +5,7 @@ import { DiffView, type DiffMode } from "../diff/DiffView";
 import { FlowView } from "../flow/FlowView";
 import { DepsMap } from "../map/DepsMap";
 import { Splitter } from "../Splitter";
+import { BREAKPOINTS, useMediaQuery } from "../useMediaQuery";
 import { usePaneWidth } from "../usePaneWidth";
 import type { Selection } from "../history/CommitList";
 import { relativeTime } from "../lib/time";
@@ -21,11 +22,11 @@ interface Props {
   scheme?: "light" | "dark";
 }
 
-const MODES: { value: WorktreeMode; label: string }[] = [
-  { value: "all", label: "All uncommitted" },
-  { value: "staged", label: "Staged" },
-  { value: "unstaged", label: "Unstaged" },
-  { value: "untracked", label: "Untracked" },
+const MODES: { value: WorktreeMode; label: string; tip: string }[] = [
+  { value: "all", label: "All uncommitted", tip: "Everything that differs from HEAD, plus untracked files" },
+  { value: "staged", label: "Staged", tip: "Changes in the index (git add) compared with HEAD" },
+  { value: "unstaged", label: "Unstaged", tip: "Working-tree edits not yet staged, compared with the index" },
+  { value: "untracked", label: "Untracked", tip: "New files git does not track yet" },
 ];
 
 function usePersisted<T extends string>(key: string, fallback: T, valid: readonly T[]): [T, (v: T) => void] {
@@ -64,6 +65,7 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
     setPane("diff");
   };
   const [filesWidth, setFilesWidth, resetFilesWidth] = usePaneWidth({ key: "void.filesWidth", initial: 300, min: 200, max: 800 });
+  const tablet = useMediaQuery(BREAKPOINTS.tablet);
 
   const selector: ChangesetSelector =
     selection.kind === "commit"
@@ -145,7 +147,7 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
           <h2>Working tree</h2>
           <div className="segmented" role="radiogroup" aria-label="Uncommitted changes">
             {MODES.map((m) => (
-              <button key={m.value} type="button" role="radio" aria-checked={mode === m.value} className={mode === m.value ? "on" : ""} onClick={() => setMode(m.value)}>
+              <button key={m.value} type="button" role="radio" aria-checked={mode === m.value} className={mode === m.value ? "on" : ""} onClick={() => setMode(m.value)} title={m.tip}>
                 {m.label}
                 {worktree.status && m.value !== "all" && <span className="count">{worktree.status[m.value]}</span>}
               </button>
@@ -171,14 +173,14 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
                   aria-checked={pane === p}
                   className={pane === p ? "on" : ""}
                   onClick={() => setPane(p)}
-                  title={p === "map" ? "Dependency map (m)" : p === "flow" ? "Flow diagram (f)" : "Diff"}
+                  title={p === "map" ? "Dependency map: changed files and their import neighbours (m)" : p === "flow" ? "Flow diagram: files laid out by import direction, left to right (f)" : "Per-file diffs"}
                 >
                   {p === "diff" ? "Diff" : p === "map" ? "Map" : "Flow"}
                 </button>
               ))}
             </div>
           </StatsBanner>
-          <div className="changeset-body" style={{ gridTemplateColumns: `${filesWidth}px 6px 1fr` }}>
+          <div className={`changeset-body${tablet ? " stacked" : ""}`} style={tablet ? undefined : { gridTemplateColumns: `${filesWidth}px 6px 1fr` }}>
             <FileList
               files={changeset.data.files}
               filter={filter}
@@ -189,7 +191,7 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
               view={view}
               onViewChange={setView}
             />
-            <Splitter width={filesWidth} onChange={setFilesWidth} onReset={resetFilesWidth} label="Resize file list" min={200} max={800} />
+            {!tablet && <Splitter width={filesWidth} onChange={setFilesWidth} onReset={resetFilesWidth} label="Resize file list" min={200} max={800} />}
             {pane === "flow" ? (
               <FlowView
                 worktree={worktree}
@@ -269,6 +271,7 @@ function RangeHeader({
           checked={selection.mergeBase}
           onChange={(e) => onChange?.({ ...selection, mergeBase: e.target.checked })}
           disabled={!onChange}
+          title="On: only what the newer side added since the two diverged (A...B). Off: every difference between the two (A..B)."
         />{" "}
         Compare against merge base
       </label>
