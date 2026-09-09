@@ -1068,3 +1068,69 @@ g.node.neighbour .dep-label {
 .diff-table tr.focused td.code {
   box-shadow: inset 2px 0 0 var(--accent);
 }
+
+/* ---- flow diagram ---- */
+.flow-box {
+  fill: var(--bg-elev);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.flow-node.changed .flow-box {
+  stroke: var(--muted);
+}
+.flow-node.selected .flow-box {
+  stroke: var(--fg);
+  stroke-width: 2;
+}
+.flow-node.clickable {
+  cursor: pointer;
+}
+.flow-node:hover .flow-box {
+  stroke: var(--accent);
+}
+.flow-node.dim {
+  opacity: 0.25;
+}
+.flow-node {
+  transition: opacity 0.12s;
+}
+.flow-label {
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  fill: var(--fg);
+}
+.flow-node.neighbour .flow-label {
+  fill: var(--muted);
+}
+.flow-edge {
+  fill: none;
+  stroke: var(--muted);
+  stroke-opacity: 0.55;
+  stroke-width: 1.2;
+  transition: stroke-opacity 0.12s;
+}
+.flow-edge.reversed {
+  stroke-dasharray: 4 3;
+}
+.flow-edge.lit {
+  stroke: var(--accent);
+  stroke-opacity: 1;
+  stroke-width: 1.8;
+}
+.flow-edge.dim {
+  stroke-opacity: 0.1;
+}
+.legend-dash {
+  display: inline-block;
+  width: 14px;
+  border-top: 2px dashed var(--muted);
+}
+
+.deps-toolbar .diff-path {
+  flex: none;
+}
+.deps-toolbar .deps-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}

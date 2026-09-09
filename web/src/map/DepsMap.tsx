@@ -153,7 +153,16 @@ export function DepsMap({ worktree, selector, changedPaths, selectedPath, onSele
     if (!svg) return;
     const z = d3zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.15, 5])
-      .filter((e: Event) => !(e.target as Element).closest("g.node"))
+      // Explicit extent: the default reads the SVG viewBox, which jsdom lacks.
+      .extent((): [[number, number], [number, number]] => {
+        const w = Number(svg.getAttribute("width")) || 800;
+        const h = Number(svg.getAttribute("height")) || 500;
+        return [
+          [0, 0],
+          [w, h],
+        ];
+      })
+      .filter((e: Event) => (e as MouseEvent).view !== null && !(e.target as Element).closest("g.node"))
       .on("zoom", (e) => setTransform(e.transform));
     zoomRef.current = z;
     select(svg).call(z);

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { api, changesetApi, type ChangesetSelector, type Commit, type Worktree, type WorktreeMode } from "../api";
 import { DiffView, type DiffMode } from "../diff/DiffView";
+import { FlowView } from "../flow/FlowView";
 import { DepsMap } from "../map/DepsMap";
 import { Splitter } from "../Splitter";
 import { usePaneWidth } from "../usePaneWidth";
@@ -53,7 +54,7 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
   const [diffMode, setDiffMode] = usePersisted<DiffMode>("void.diffMode", "unified", ["unified", "split"]);
   const [ws, setWs] = usePersisted<"0" | "1">("void.ignoreWhitespace", "0", ["0", "1"]);
   const [filter, setFilter] = useState("");
-  const [pane, setPane] = useState<"diff" | "map">("diff");
+  const [pane, setPane] = useState<"diff" | "map" | "flow">("diff");
   const [wholeFile, setWholeFile] = useState(false);
   const [blame, setBlame] = useState(false);
   const openWhole = (p: string) => {
@@ -115,7 +116,12 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
       }
       if (e.key === "m" && !typing) {
         e.preventDefault();
-        setPane((p) => (p === "diff" ? "map" : "diff"));
+        setPane((p) => (p === "map" ? "diff" : "map"));
+        return;
+      }
+      if (e.key === "f" && !typing) {
+        e.preventDefault();
+        setPane((p) => (p === "flow" ? "diff" : "flow"));
         return;
       }
       if (typing || (e.key !== "n" && e.key !== "p") || visible.length === 0) return;
@@ -157,9 +163,17 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
         <>
           <StatsBanner totals={changeset.data.totals} languages={languageBreakdown(changeset.data.files)}>
             <div className="segmented" role="radiogroup" aria-label="Pane">
-              {(["diff", "map"] as const).map((p) => (
-                <button key={p} type="button" role="radio" aria-checked={pane === p} className={pane === p ? "on" : ""} onClick={() => setPane(p)} title={p === "map" ? "Dependency map (m)" : "Diff (m)"}>
-                  {p === "diff" ? "Diff" : "Map"}
+              {(["diff", "map", "flow"] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  role="radio"
+                  aria-checked={pane === p}
+                  className={pane === p ? "on" : ""}
+                  onClick={() => setPane(p)}
+                  title={p === "map" ? "Dependency map (m)" : p === "flow" ? "Flow diagram (f)" : "Diff"}
+                >
+                  {p === "diff" ? "Diff" : p === "map" ? "Map" : "Flow"}
                 </button>
               ))}
             </div>
@@ -176,7 +190,19 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
               onViewChange={setView}
             />
             <Splitter width={filesWidth} onChange={setFilesWidth} onReset={resetFilesWidth} label="Resize file list" min={200} max={800} />
-            {pane === "map" ? (
+            {pane === "flow" ? (
+              <FlowView
+                worktree={worktree}
+                selector={selector}
+                changedPaths={new Set(files.map((f) => f.path))}
+                filter={filter}
+                selectedPath={current?.path ?? null}
+                onSelectPath={(p) => {
+                  onSelectPath(p);
+                  setPane("diff");
+                }}
+              />
+            ) : pane === "map" ? (
               <DepsMap
                 worktree={worktree}
                 selector={selector}
