@@ -169,6 +169,10 @@ describe("DiffView", () => {
     await screen.findByRole("table");
     const scroll = vi.fn();
     Element.prototype.scrollIntoView = scroll;
+    // jsdom has no layout: put the hunk start 100px below the container top
+    document.querySelectorAll<HTMLElement>("[data-hunk-start]").forEach((el) => {
+      el.getBoundingClientRect = () => ({ top: 100, left: 0, bottom: 120, right: 0, width: 0, height: 20, x: 0, y: 100, toJSON: () => ({}) });
+    });
     fireEvent.keyDown(window, { key: "j" });
     expect(scroll).toHaveBeenCalledTimes(1);
     const input = document.createElement("input");

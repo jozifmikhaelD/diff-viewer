@@ -22,10 +22,11 @@ test("the flow pane lays changed files out by import direction and copies Mermai
   expect(text).toContain("feature.ts (A");
 
   await flow.getByRole("button", { name: /feature\.ts/ }).click();
-  await expect(main.getByRole("region", { name: "Diff for src/feature.ts" })).toBeVisible();
+  await expect(main.getByRole("region", { name: "All diffs" })).toBeVisible();
+  await expect(main.getByRole("treeitem", { selected: true })).toHaveAttribute("data-path", "src/feature.ts");
 
   await page.keyboard.press("f");
   await expect(main.getByRole("region", { name: "Flow diagram" })).toBeVisible();
   await page.keyboard.press("f");
-  await expect(main.getByRole("region", { name: /Diff for/ })).toBeVisible();
+  await expect(main.getByRole("region", { name: "All diffs" })).toBeVisible();
 });

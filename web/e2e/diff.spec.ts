@@ -4,8 +4,9 @@ test("selecting a commit opens the first file's diff with word highlights; split
   await page.goto("/");
   await page.getByRole("listbox", { name: "History" }).getByText("c3: rename util").click();
   const main = page.getByRole("main");
-  // first file in tree order is lib/helper.py
+  // every file is a section of the stream; the first in tree order is current
   await expect(main.getByRole("region", { name: "Diff for lib/helper.py" })).toBeVisible();
+  await expect(main.getByRole("treeitem", { selected: true })).toHaveAttribute("data-path", "lib/helper.py");
   await main.getByRole("button", { name: /utils\.ts/ }).click();
   const diff = main.getByRole("region", { name: "Diff for src/utils.ts" });
   await expect(diff.getByRole("heading", { name: /src\/util\.ts → src\/utils\.ts/ })).toBeVisible();
@@ -14,7 +15,7 @@ test("selecting a commit opens the first file's diff with word highlights; split
   // syntax highlighting arrives lazily: TypeScript keywords get a colour
   await expect(diff.locator("td.code span[style*='color']").first()).toBeVisible({ timeout: 15_000 });
 
-  await diff.getByRole("radio", { name: "Side by side" }).click();
+  await main.getByRole("radio", { name: "Side by side" }).click();
   await expect(diff.locator("table.split")).toBeVisible();
   await expect(diff.locator("td.code.del")).toContainText("hello");
   await expect(diff.locator("td.code.add")).toContainText("hi");
@@ -26,7 +27,7 @@ test("selecting a commit opens the first file's diff with word highlights; split
   // layout choice persists (still side by side)
   await expect(d2.locator("table.split")).toBeVisible();
   await expect(d2.locator("td.code.add")).toContainText('VERSION = "0.1"');
-  await d2.getByRole("radio", { name: "Unified" }).click();
+  await main.getByRole("radio", { name: "Unified" }).click();
   await expect(d2.locator("tr.add")).toContainText('VERSION = "0.1"');
 });
 
@@ -34,13 +35,14 @@ test("keyboard: n/p switch files, j/k move between hunks, / focuses the filter",
   await page.goto("/");
   await page.getByRole("listbox", { name: "History" }).getByText("c3: rename util").click();
   const main = page.getByRole("main");
-  await expect(main.getByRole("region", { name: "Diff for lib/helper.py" })).toBeVisible();
+  const selected = () => main.getByRole("treeitem", { selected: true });
+  await expect(selected()).toHaveAttribute("data-path", "lib/helper.py");
   await page.keyboard.press("n");
-  await expect(main.getByRole("region", { name: "Diff for src/app.ts" })).toBeVisible();
+  await expect(selected()).toHaveAttribute("data-path", "src/app.ts");
   await page.keyboard.press("n");
-  await expect(main.getByRole("region", { name: "Diff for src/utils.ts" })).toBeVisible();
+  await expect(selected()).toHaveAttribute("data-path", "src/utils.ts");
   await page.keyboard.press("p");
-  await expect(main.getByRole("region", { name: "Diff for src/app.ts" })).toBeVisible();
+  await expect(selected()).toHaveAttribute("data-path", "src/app.ts");
   await page.keyboard.press("/");
   await expect(main.getByRole("searchbox")).toBeFocused();
 });

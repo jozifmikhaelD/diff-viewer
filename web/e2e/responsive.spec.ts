@@ -13,7 +13,7 @@ test("narrow viewports stack the panes and hide history behind a toggle", async 
   // file list stacks above the diff (no file-list splitter)
   await expect(page.getByRole("separator", { name: "Resize file list" })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Changed files" })).toBeVisible();
-  await expect(page.getByRole("region", { name: /Diff for/ })).toBeVisible();
+  await expect(page.getByRole("region", { name: "All diffs" })).toBeVisible();
   // no horizontal page scroll
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);

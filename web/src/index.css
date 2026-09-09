@@ -1259,3 +1259,48 @@ kbd {
   background: var(--bg);
   white-space: nowrap;
 }
+
+/* ---- diff stream ---- */
+.file-section {
+  border-bottom: 1px solid var(--border);
+}
+.file-section-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+}
+.file-section.current > .file-section-header {
+  border-left-color: var(--accent);
+}
+.file-section-header h4 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.file-placeholder {
+  background: repeating-linear-gradient(0deg, transparent 0 19px, var(--bg-elev) 19px 20px);
+  opacity: 0.5;
+}
+button.ghost.small {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+}
+
+/* room to scroll the last file up to the reading line */
+.diff-stream .diff-scroll::after {
+  content: "";
+  display: block;
+  height: 60vh;
+}

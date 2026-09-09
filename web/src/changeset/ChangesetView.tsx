@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { api, changesetApi, type ChangesetSelector, type Commit, type Worktree, type WorktreeMode } from "../api";
+import { DiffStream } from "../diff/DiffStream";
 import { DiffView, type DiffMode } from "../diff/DiffView";
 import { FlowView } from "../flow/FlowView";
 import { DepsMap } from "../map/DepsMap";
@@ -216,7 +217,7 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
                   setPane("diff");
                 }}
               />
-            ) : current ? (
+            ) : wholeFile && current ? (
               <DiffView
                 key={`${current.path}:${current.oldPath ?? ""}`}
                 worktree={worktree}
@@ -232,6 +233,20 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
                 onModeChange={setDiffMode}
                 ignoreWhitespace={ws === "1"}
                 onIgnoreWhitespaceChange={(v) => setWs(v ? "1" : "0")}
+              />
+            ) : visible.length > 0 ? (
+              <DiffStream
+                worktree={worktree}
+                selector={selector}
+                files={visible}
+                selectedPath={current?.path ?? null}
+                onSelectPath={onSelectPath}
+                scheme={scheme}
+                mode={diffMode}
+                onModeChange={setDiffMode}
+                ignoreWhitespace={ws === "1"}
+                onIgnoreWhitespaceChange={(v) => setWs(v ? "1" : "0")}
+                onWholeFile={openWhole}
               />
             ) : (
               <div className="diff diff-empty">

@@ -25,14 +25,15 @@ test("the dependency map shows changed files, their imports, and neighbours; cli
   await expect(map.locator("g.node")).toHaveCount(3);
 
   await map.getByRole("button", { name: /src\/feature\.ts/ }).click();
-  await expect(main.getByRole("region", { name: "Diff for src/feature.ts" })).toBeVisible();
+  await expect(main.getByRole("region", { name: "All diffs" })).toBeVisible();
+  await expect(main.getByRole("treeitem", { selected: true })).toHaveAttribute("data-path", "src/feature.ts");
 });
 
 test("m toggles the map and depth 2 reaches second-order neighbours", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("listbox", { name: "History" }).getByText("c3: rename util").click();
   const main = page.getByRole("main");
-  await main.getByRole("region", { name: /Diff for/ }).waitFor();
+  await main.getByRole("region", { name: "All diffs" }).waitFor();
   await page.keyboard.press("m");
   const map = main.getByRole("region", { name: "Dependency map" });
   await expect(map).toBeVisible();
@@ -42,5 +43,5 @@ test("m toggles the map and depth 2 reaches second-order neighbours", async ({ p
   await expect(map.locator("g.hull")).toHaveCount(3); // lib, src and root clusters
   await map.getByRole("button", { name: "Fit" }).click();
   await page.keyboard.press("m");
-  await expect(main.getByRole("region", { name: /Diff for/ })).toBeVisible();
+  await expect(main.getByRole("region", { name: "All diffs" })).toBeVisible();
 });

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { blameApi, diffApi, type Blame, type BlameCommit, type ChangesetSelector, type FileChange, type FileDiff, type Worktree } from "../api";
 import { relativeTime } from "../lib/time";
 import { languageFor, mergePieces, tokenizeLines, type LineTokens } from "./highlight";
+import { useHunkKeys } from "./useHunkKeys";
 import { buildRows, EXPAND_STEP, hunkStarts, type GapRow, type GapState, type LineRow, type Row } from "./rows";
 import { wordDiff, type Segment } from "./wordDiff";
 
@@ -28,7 +29,24 @@ interface Props {
 
 const fmtBytes = (n: number) => (n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`);
 
-export function DiffView({ worktree, selector, file, scheme = "light", wholeFile = false, onWholeFileChange, blame = false, onBlameChange, onSelectCommit, mode, onModeChange, ignoreWhitespace, onIgnoreWhitespaceChange }: Props) {
+export interface DiffBodyProps {
+  worktree: Worktree;
+  selector: ChangesetSelector;
+  file: FileChange;
+  scheme?: "light" | "dark";
+  mode: DiffMode;
+  ignoreWhitespace: boolean;
+  wholeFile?: boolean;
+  blame?: boolean;
+  onSelectCommit?: (sha: string) => void;
+  /** Increment to expand every gap. */
+  expandAllSignal?: number;
+  /** Called when the diff loads (lets toolbars enable/disable options). */
+  onLoaded?: (fd: FileDiff) => void;
+}
+
+/** One file's diff: fetches it and renders the table with gaps, highlight and blame. */
+export function DiffBody({ worktree, selector, file, scheme = "light", mode, ignoreWhitespace, wholeFile = false, blame = false, onSelectCommit, expandAllSignal = 0, onLoaded }: DiffBodyProps) {
   const query = useQuery({
     queryKey: ["diff", worktree.path, selector, file.path, file.oldPath ?? "", ignoreWhitespace],
     queryFn: () => diffApi.file(worktree.path, selector, file.path, file.oldPath, { ignoreWhitespace }),
@@ -36,6 +54,9 @@ export function DiffView({ worktree, selector, file, scheme = "light", wholeFile
   });
   const [gaps, setGaps] = useState<GapState>({});
   const fd = query.data;
+  useEffect(() => {
+    if (fd) onLoaded?.(fd);
+  }, [fd, onLoaded]);
   // Whole-file mode: every gap fully expanded (only possible with content).
   const effectiveGaps = useMemo(() => {
     if (!wholeFile || !fd || fd.truncated || !(fd.old ?? fd.new)) return gaps;
@@ -60,9 +81,7 @@ export function DiffView({ worktree, selector, file, scheme = "light", wholeFile
     if (!blame) return null;
     return { data: blameQuery.data ?? null, focusLine, setFocusLine, onSelectCommit };
   }, [blame, blameQuery.data, focusLine, onSelectCommit]);
-  const starts = useMemo(() => hunkStarts(rows), [rows]);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [hunkIdx, setHunkIdx] = useState(-1);
+  const starts = useMemo(() => new Set(hunkStarts(rows)), [rows]);
   const highlight = useHighlight(fd, file.path, scheme);
 
   const expand = useCallback((gap: GapRow, dir: "up" | "down" | "all") => {
@@ -72,31 +91,55 @@ export function DiffView({ worktree, selector, file, scheme = "light", wholeFile
       return { ...g, [gap.id]: { ...cur, [dir]: cur[dir] + EXPAND_STEP } };
     });
   }, []);
-  const expandAll = () => {
-    if (!fd) return;
-    const all: GapState = {};
-    for (const r of rows) if (r.kind === "gap") all[r.id] = { up: (gaps[r.id]?.up ?? 0) + r.count, down: gaps[r.id]?.down ?? 0 };
-    setGaps({ ...gaps, ...all });
-  };
-
-  // j / k hunk navigation
+  const lastSignal = useRef(expandAllSignal);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (isTyping(e.target)) return;
-      if (e.key !== "j" && e.key !== "k") return;
-      if (starts.length === 0) return;
-      e.preventDefault();
-      const next = e.key === "j" ? Math.min(hunkIdx + 1, starts.length - 1) : Math.max(hunkIdx - 1, 0);
-      setHunkIdx(next);
-      const el = scrollRef.current?.querySelector<HTMLElement>(`[data-row="${starts[next]}"]`);
-      el?.scrollIntoView({ block: "center" });
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [starts, hunkIdx]);
+    if (expandAllSignal === lastSignal.current || !fd) return;
+    lastSignal.current = expandAllSignal;
+    setGaps((g) => {
+      const all: GapState = { ...g };
+      for (const r of buildRows(fd, g)) if (r.kind === "gap") all[r.id] = { up: (g[r.id]?.up ?? 0) + r.count, down: g[r.id]?.down ?? 0 };
+      return all;
+    });
+  }, [expandAllSignal, fd]);
 
   const churn = file.additions + file.deletions;
+  return (
+    <>
+      {query.isPending && <p role="status">Loading diff…</p>}
+      {query.isError && (
+        <p role="alert" className="error">
+          Could not load diff: {query.error.message}
+        </p>
+      )}
+      {blame && blameQuery.isError && (
+        <p role="alert" className="error">
+          Could not load blame: {blameQuery.error.message}
+        </p>
+      )}
+      {fd && (
+        <>
+          {fd.binary && (
+            <p className="diff-notice">
+              Binary file{fd.hasOld && fd.hasNew ? ` changed: ${fmtBytes(fd.oldSize)} → ${fmtBytes(fd.newSize)}` : fd.hasNew ? ` added (${fmtBytes(fd.newSize)})` : ` deleted (${fmtBytes(fd.oldSize)})`}.
+            </p>
+          )}
+          {fd.submodule && <p className="diff-notice">Submodule pointer changed.</p>}
+          {fd.truncated && <p className="diff-notice">File is large; context expansion is disabled.</p>}
+          {!fd.binary && fd.hunks.length === 0 && (
+            <p className="diff-notice">{churn === 0 && !ignoreWhitespace ? "No textual changes." : "No changes to show" + (ignoreWhitespace ? " once whitespace is ignored." : ".")}</p>
+          )}
+          {!fd.binary && fd.hunks.length > 0 && (mode === "split" && !wholeFile ? <SplitTable rows={rows} starts={starts} onExpand={expand} hl={highlight} blame={blameCtx} /> : <UnifiedTable rows={rows} starts={starts} onExpand={expand} hl={highlight} blame={blameCtx} newOnly={wholeFile} />)}
+        </>
+      )}
+    </>
+  );
+}
+
+export function DiffView({ worktree, selector, file, scheme = "light", wholeFile = false, onWholeFileChange, blame = false, onBlameChange, onSelectCommit, mode, onModeChange, ignoreWhitespace, onIgnoreWhitespaceChange }: Props) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [fd, setFd] = useState<FileDiff | undefined>();
+  const [expandSignal, setExpandSignal] = useState(0);
+  useHunkKeys(scrollRef);
   return (
     <section className="diff" aria-label={`Diff for ${file.path}`}>
       <header className="diff-toolbar">
@@ -126,7 +169,7 @@ export function DiffView({ worktree, selector, file, scheme = "light", wholeFile
           </label>
         )}
         {fd && !fd.truncated && fd.hunks.length > 0 && (fd.old ?? fd.new) && (
-          <button type="button" className="ghost" onClick={expandAll} title="Show every unchanged line between hunks">
+          <button type="button" className="ghost" onClick={() => setExpandSignal((n) => n + 1)} title="Show every unchanged line between hunks">
             Expand all
           </button>
         )}
@@ -138,32 +181,21 @@ export function DiffView({ worktree, selector, file, scheme = "light", wholeFile
           ))}
         </div>
       </header>
-      {query.isPending && <p role="status">Loading diff…</p>}
-      {query.isError && (
-        <p role="alert" className="error">
-          Could not load diff: {query.error.message}
-        </p>
-      )}
-      {blame && blameQuery.isError && (
-        <p role="alert" className="error">
-          Could not load blame: {blameQuery.error.message}
-        </p>
-      )}
-      {fd && (
-        <div className="diff-scroll" ref={scrollRef}>
-          {fd.binary && (
-            <p className="diff-notice">
-              Binary file{fd.hasOld && fd.hasNew ? ` changed: ${fmtBytes(fd.oldSize)} → ${fmtBytes(fd.newSize)}` : fd.hasNew ? ` added (${fmtBytes(fd.newSize)})` : ` deleted (${fmtBytes(fd.oldSize)})`}.
-            </p>
-          )}
-          {fd.submodule && <p className="diff-notice">Submodule pointer changed.</p>}
-          {fd.truncated && <p className="diff-notice">File is large; context expansion is disabled.</p>}
-          {!fd.binary && fd.hunks.length === 0 && (
-            <p className="diff-notice">{churn === 0 && !ignoreWhitespace ? "No textual changes." : "No changes to show" + (ignoreWhitespace ? " once whitespace is ignored." : ".")}</p>
-          )}
-          {!fd.binary && fd.hunks.length > 0 && (mode === "split" && !wholeFile ? <SplitTable rows={rows} onExpand={expand} hl={highlight} blame={blameCtx} /> : <UnifiedTable rows={rows} onExpand={expand} hl={highlight} blame={blameCtx} newOnly={wholeFile} />)}
-        </div>
-      )}
+      <div className="diff-scroll" ref={scrollRef}>
+        <DiffBody
+          worktree={worktree}
+          selector={selector}
+          file={file}
+          scheme={scheme}
+          mode={mode}
+          ignoreWhitespace={ignoreWhitespace}
+          wholeFile={wholeFile}
+          blame={blame}
+          onSelectCommit={onSelectCommit}
+          expandAllSignal={expandSignal}
+          onLoaded={setFd}
+        />
+      </div>
     </section>
   );
 }
@@ -262,13 +294,6 @@ function remap(tokens: LineTokens[], numbers: number[] | null): LineTokens[] {
   return out;
 }
 
-function isTyping(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null;
-  if (!el) return false;
-  const tag = el.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
-}
-
 function useWordDiffs(rows: Row[]) {
   return useMemo(() => {
     const map = new Map<string, { a: Segment[]; b: Segment[] }>();
@@ -320,7 +345,7 @@ function GapCells({ gap, onExpand, colSpan }: { gap: GapRow; onExpand: (g: GapRo
 
 const lineClass = (t?: " " | "+" | "-") => (t === "+" ? "add" : t === "-" ? "del" : "ctx");
 
-function UnifiedTable({ rows, onExpand, hl, blame, newOnly = false }: { rows: Row[]; onExpand: (g: GapRow, d: "up" | "down" | "all") => void; hl: Highlight; blame: BlameContext | null; newOnly?: boolean }) {
+function UnifiedTable({ rows, starts, onExpand, hl, blame, newOnly = false }: { rows: Row[]; starts: Set<number>; onExpand: (g: GapRow, d: "up" | "down" | "all") => void; hl: Highlight; blame: BlameContext | null; newOnly?: boolean }) {
   const wd = useWordDiffs(rows);
   return (
     <table className="diff-table unified">
@@ -334,18 +359,19 @@ function UnifiedTable({ rows, onExpand, hl, blame, newOnly = false }: { rows: Ro
             ];
           if (r.kind === "header")
             return [
-              <tr key={r.key} className="hunk-header" data-row={i}>
+              <tr key={r.key} className="hunk-header" data-row={i} data-hunk-start={starts.has(i) ? "" : undefined}>
                 <td colSpan={3}>@@ {r.text}</td>
               </tr>,
             ];
           const out = [];
           const seg = wd.get(r.key);
+          const hs = starts.has(i);
           if (newOnly) {
-            if (r.new) out.push(<LineTr key={`${r.key}n`} row={r} side={r.new} otherNo={r.old?.no} segments={r.new.type === "+" ? seg?.b : undefined} tokens={tokensAt(hl.new, r.new.no)} index={i} blame={blame} newNo={r.new.no} />);
+            if (r.new) out.push(<LineTr key={`${r.key}n`} row={r} side={r.new} otherNo={r.old?.no} segments={r.new.type === "+" ? seg?.b : undefined} tokens={tokensAt(hl.new, r.new.no)} index={i} blame={blame} newNo={r.new.no} hunkStart={hs} />);
             return out;
           }
-          if (r.old) out.push(<LineTr key={`${r.key}o`} row={r} side={r.old} otherNo={r.old.type === " " ? r.new?.no : undefined} segments={seg?.a} tokens={tokensAt(hl.old, r.old.no) ?? (r.old.type === " " ? tokensAt(hl.new, r.new?.no) : undefined)} index={i} blame={blame} newNo={r.old.type === " " ? r.new?.no : undefined} />);
-          if (r.new && r.new.type !== " ") out.push(<LineTr key={`${r.key}n`} row={r} side={r.new} segments={seg?.b} tokens={tokensAt(hl.new, r.new.no)} index={i} blame={blame} newNo={r.new.no} />);
+          if (r.old) out.push(<LineTr key={`${r.key}o`} row={r} side={r.old} otherNo={r.old.type === " " ? r.new?.no : undefined} segments={seg?.a} tokens={tokensAt(hl.old, r.old.no) ?? (r.old.type === " " ? tokensAt(hl.new, r.new?.no) : undefined)} index={i} blame={blame} newNo={r.old.type === " " ? r.new?.no : undefined} hunkStart={hs} />);
+          if (r.new && r.new.type !== " ") out.push(<LineTr key={`${r.key}n`} row={r} side={r.new} segments={seg?.b} tokens={tokensAt(hl.new, r.new.no)} index={i} blame={blame} newNo={r.new.no} hunkStart={hs && !r.old} />);
           return out;
         })}
       </tbody>
@@ -353,7 +379,7 @@ function UnifiedTable({ rows, onExpand, hl, blame, newOnly = false }: { rows: Ro
   );
 }
 
-function LineTr({ row, side, otherNo, segments, tokens, index, blame, newNo: blameNo }: { row: LineRow; side: NonNullable<LineRow["old"]>; otherNo?: number; segments?: Segment[]; tokens?: LineTokens; index: number; blame: BlameContext | null; newNo?: number }) {
+function LineTr({ row, side, otherNo, segments, tokens, index, blame, newNo: blameNo, hunkStart = false }: { row: LineRow; side: NonNullable<LineRow["old"]>; otherNo?: number; segments?: Segment[]; tokens?: LineTokens; index: number; blame: BlameContext | null; newNo?: number; hunkStart?: boolean }) {
   const cls = lineClass(side.type);
   const isNewSide = blameNo !== undefined && blameNo === side.no && side.type !== "-";
   const oldNo = side.type === "+" ? "" : isNewSide ? otherNo ?? side.no : side.no;
@@ -365,6 +391,7 @@ function LineTr({ row, side, otherNo, segments, tokens, index, blame, newNo: bla
       className={`line ${cls}${focused ? " focused" : ""}`}
       data-row={index}
       data-key={row.key}
+      data-hunk-start={hunkStart ? "" : undefined}
       onMouseEnter={blame && blameNo ? () => blame.setFocusLine(blameNo) : undefined}
       onClick={blame && blameNo ? () => blame.setFocusLine(blameNo) : undefined}
     >
@@ -382,7 +409,7 @@ function LineTr({ row, side, otherNo, segments, tokens, index, blame, newNo: bla
   );
 }
 
-function SplitTable({ rows, onExpand, hl, blame }: { rows: Row[]; onExpand: (g: GapRow, d: "up" | "down" | "all") => void; hl: Highlight; blame: BlameContext | null }) {
+function SplitTable({ rows, starts, onExpand, hl, blame }: { rows: Row[]; starts: Set<number>; onExpand: (g: GapRow, d: "up" | "down" | "all") => void; hl: Highlight; blame: BlameContext | null }) {
   const wd = useWordDiffs(rows);
   return (
     <table className="diff-table split">
@@ -396,7 +423,7 @@ function SplitTable({ rows, onExpand, hl, blame }: { rows: Row[]; onExpand: (g: 
             );
           if (r.kind === "header")
             return (
-              <tr key={r.key} className="hunk-header" data-row={i}>
+              <tr key={r.key} className="hunk-header" data-row={i} data-hunk-start={starts.has(i) ? "" : undefined}>
                 <td colSpan={4}>@@ {r.text}</td>
               </tr>
             );
@@ -410,6 +437,7 @@ function SplitTable({ rows, onExpand, hl, blame }: { rows: Row[]; onExpand: (g: 
               className={`line${focused ? " focused" : ""}`}
               data-row={i}
               data-key={r.key}
+              data-hunk-start={starts.has(i) ? "" : undefined}
               onMouseEnter={blame && newNo ? () => blame.setFocusLine(newNo) : undefined}
               onClick={blame && newNo ? () => blame.setFocusLine(newNo) : undefined}
             >

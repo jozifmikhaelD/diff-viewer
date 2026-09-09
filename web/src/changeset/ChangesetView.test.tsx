@@ -102,7 +102,7 @@ describe("ChangesetView", () => {
     const map = screen.getByRole("region", { name: "Dependency map" });
     await userEvent.setup().click(await within(map).findByRole("button", { name: /README\.md/ }));
     expect(onSelectPath).toHaveBeenCalledWith("README.md");
-    expect(await screen.findByRole("region", { name: /Diff for/ })).toBeInTheDocument();
+    expect((await screen.findAllByRole("region", { name: /Diff for/ })).length).toBeGreaterThan(0);
   });
 
   it("reports selection and errors", async () => {
