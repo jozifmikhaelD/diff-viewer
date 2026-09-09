@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -150,8 +151,11 @@ func TestStaticServesFilesAndSPAFallback(t *testing.T) {
 		"assets/app.js": {Data: []byte("console.log(1)")},
 	}
 	s := newTestServer(t, static)
-	if rec := get(t, s, "/assets/app.js"); rec.Body.String() != "console.log(1)" {
-		t.Errorf("asset body = %q", rec.Body.String())
+	if rec := get(t, s, "/assets/app.js"); rec.Body.String() != "console.log(1)" || !strings.Contains(rec.Header().Get("Cache-Control"), "immutable") {
+		t.Errorf("asset body = %q cache = %q", rec.Body.String(), rec.Header().Get("Cache-Control"))
+	}
+	if rec := get(t, s, "/"); rec.Header().Get("Cache-Control") != "no-cache" {
+		t.Errorf("index cache = %q, want no-cache", rec.Header().Get("Cache-Control"))
 	}
 	for _, p := range []string{"/", "/commits/abc123", "/assets/"} {
 		rec := get(t, s, p)

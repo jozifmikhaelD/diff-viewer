@@ -286,6 +286,14 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 		st, statErr := f.Stat()
 		_ = f.Close()
 		if statErr == nil && !st.IsDir() {
+			// Vite names assets by content hash, so they can be cached forever;
+			// everything else (index.html, favicon) must be revalidated so a
+			// rebuilt binary is picked up on the next reload.
+			if strings.HasPrefix(name, "assets/") {
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			} else {
+				w.Header().Set("Cache-Control", "no-cache")
+			}
 			http.ServeFileFS(w, r, s.static, name)
 			return
 		}
@@ -296,6 +304,7 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 	}
 	// Serve index.html for the SPA route; rewrite the path so ServeFileFS
 	// does not redirect based on the requested URL.
+	w.Header().Set("Cache-Control", "no-cache")
 	r.URL.Path = "/"
 	http.ServeFileFS(w, r, s.static, "index.html")
 }
