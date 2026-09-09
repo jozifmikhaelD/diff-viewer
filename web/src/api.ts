@@ -225,8 +225,8 @@ export interface DepGraph {
 }
 
 export const depsApi = {
-  graph: (wt: string, sel: ChangesetSelector, depth: number) =>
-    getJSON<DepGraph>(`${changesetURL(wt, sel).replace("/api/changeset", "/api/deps")}&depth=${depth}`),
+  graph: (wt: string, sel: ChangesetSelector, depth: number, filter = "") =>
+    getJSON<DepGraph>(`${changesetURL(wt, sel).replace("/api/changeset", "/api/deps")}&depth=${depth}${filter.trim() ? `&filter=${encodeURIComponent(filter.trim())}` : ""}`),
 };
 
 export interface RecentRepo {

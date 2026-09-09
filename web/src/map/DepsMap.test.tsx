@@ -77,7 +77,7 @@ describe("DepsMap", () => {
   });
 
   it("narrows to the file filter and its attached neighbours", async () => {
-    mockFetch({ "/api/deps": { body: graph } });
+    const calls = mockFetch({ "/api/deps": { body: graph } });
     const { rerender } = renderWithQuery(
       <DepsMap worktree={worktreeMain} selector={{ commit: "abc" }} changedPaths={new Set()} selectedPath={null} onSelectPath={() => {}} filter="helper" size={{ width: 600, height: 400 }} />,
     );
@@ -86,6 +86,7 @@ describe("DepsMap", () => {
       <DepsMap worktree={worktreeMain} selector={{ commit: "abc" }} changedPaths={new Set()} selectedPath={null} onSelectPath={() => {}} filter="app" size={{ width: 600, height: 400 }} />,
     );
     await waitFor(() => expect(document.querySelectorAll("g.node")).toHaveLength(2)); // app.ts + utils.ts neighbour
+    await waitFor(() => expect(calls.some((c) => c.endsWith("&filter=app"))).toBe(true));
     rerender(
       <DepsMap worktree={worktreeMain} selector={{ commit: "abc" }} changedPaths={new Set()} selectedPath={null} onSelectPath={() => {}} filter="zzz" size={{ width: 600, height: 400 }} />,
     );

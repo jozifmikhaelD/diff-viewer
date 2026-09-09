@@ -35,6 +35,15 @@ const STATUS_COLOR: Record<string, string> = {
 };
 const statusColor = (s: FileStatus | undefined) => STATUS_COLOR[s ?? "M"] ?? "var(--warn)";
 
+function useDebounced<T>(value: T, ms: number): T {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
+}
+
 /** Label width estimate for collision (monospace-ish 6px per char at 11px). */
 const labelWidth = (label: string) => Math.min(160, label.length * 6);
 
@@ -42,9 +51,13 @@ export function DepsMap({ worktree, selector, changedPaths, selectedPath, onSele
   const [depth, setDepth] = useState(1);
   const [showNeighbours, setShowNeighbours] = useState(true);
   const [hideTests, setHideTests] = useState(true);
+  // The filter goes to the server too, so large changes can reach files
+  // beyond the node cap; the client-side pass then prunes neighbours.
+  const debouncedFilter = useDebounced(filter.trim(), 200);
   const query = useQuery({
-    queryKey: ["deps", worktree.path, selector, depth],
-    queryFn: () => depsApi.graph(worktree.path, selector, depth),
+    queryKey: ["deps", worktree.path, selector, depth, debouncedFilter],
+    queryFn: () => depsApi.graph(worktree.path, selector, depth, debouncedFilter),
+    placeholderData: (prev) => prev,
   });
   const view = useMemo(() => (query.data ? viewGraph(query.data, { showNeighbours, hideTests, filter }) : null), [query.data, showNeighbours, hideTests, filter]);
   const labelled = useMemo(() => (view ? alwaysLabelled(view.nodes) : new Set<string>()), [view]);

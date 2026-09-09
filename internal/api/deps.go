@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"void/internal/deps"
 	"void/internal/git"
@@ -10,7 +11,10 @@ import (
 
 const maxGraphNodes = 300
 
-// handleDeps serves GET /api/deps with the selector params plus depth= (0-2).
+// handleDeps serves GET /api/deps with the selector params plus depth= (0-2)
+// and an optional filter= (case-insensitive substring on changed paths,
+// applied before the node cap so filtering can reach files a large change
+// would otherwise truncate away).
 func (s *Server) handleDeps(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	repo, err := s.repoFor(ctx, r)
@@ -29,6 +33,15 @@ func (s *Server) handleDeps(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeGitError(w, err)
 		return
+	}
+	if f := strings.ToLower(strings.TrimSpace(q.Get("filter"))); f != "" {
+		kept := cs.Files[:0:0]
+		for _, fc := range cs.Files {
+			if strings.Contains(strings.ToLower(fc.Path), f) || strings.Contains(strings.ToLower(fc.OldPath), f) {
+				kept = append(kept, fc)
+			}
+		}
+		cs.Files = kept
 	}
 	cur, old, err := s.indexesFor(ctx, repo, sel, cs)
 	if err != nil {

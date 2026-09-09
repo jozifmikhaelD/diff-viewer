@@ -58,6 +58,15 @@ func TestDepsEndpoint(t *testing.T) {
 		t.Errorf("worktree graph = %v", paths(wt))
 	}
 
+	// filter narrows the changed set before the cap; neighbours of kept files remain
+	filtered := decode[deps.Graph](t, get(t, s, "/api/deps?commit=v0.1.0&filter=APP"), http.StatusOK)
+	if len(filtered.Nodes) != 2 || filtered.Nodes[0].Path != "src/app.ts" || filtered.Nodes[1].Path != "src/utils.ts" {
+		t.Errorf("filtered graph = %v", paths(filtered))
+	}
+	if none := decode[deps.Graph](t, get(t, s, "/api/deps?commit=v0.1.0&filter=zzz"), http.StatusOK); len(none.Nodes) != 0 {
+		t.Errorf("no-match filter = %v", paths(none))
+	}
+
 	for target, want := range map[string]int{
 		"/api/deps?commit=main&depth=5": http.StatusBadRequest,
 		"/api/deps":                     http.StatusBadRequest,
