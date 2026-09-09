@@ -32,7 +32,10 @@ describe("DepsMap", () => {
     expect(screen.getByText("2 changed · 1 neighbour · 1 import")).toBeInTheDocument();
     expect(document.querySelectorAll("line.dep-edge")).toHaveLength(1);
     expect(document.querySelectorAll("g.node.neighbour")).toHaveLength(1);
-    expect(screen.getByRole("list", { name: "Directories" })).toHaveTextContent("lib");
+    expect(screen.getByRole("list", { name: "Legend" })).toHaveTextContent("modified");
+    // cluster hulls for lib and src
+    expect(document.querySelectorAll("g.hull")).toHaveLength(2);
+    expect(screen.getByText("src · 2")).toBeInTheDocument();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /src\/app\.ts/ }));
     expect(onSelect).toHaveBeenCalledWith("src/app.ts");
@@ -52,6 +55,41 @@ describe("DepsMap", () => {
     expect(document.querySelectorAll("line.dep-edge")).toHaveLength(0);
     fireEvent.change(screen.getByRole("slider", { name: "Neighbour depth" }), { target: { value: "2" } });
     await waitFor(() => expect(calls.some((c) => c.endsWith("depth=2"))).toBe(true));
+  });
+
+  it("hides test files by default and can show them", async () => {
+    mockFetch({
+      "/api/deps": {
+        body: {
+          ...graph,
+          nodes: [...graph.nodes, { path: "src/app.spec.ts", changed: false, additions: 0, deletions: 0, depth: 1 }],
+          edges: [...graph.edges, { from: "src/app.spec.ts", to: "src/app.ts" }],
+        },
+      },
+    });
+    renderWithQuery(
+      <DepsMap worktree={worktreeMain} selector={{ commit: "abc" }} changedPaths={new Set()} selectedPath={null} onSelectPath={() => {}} size={{ width: 600, height: 400 }} />,
+    );
+    await waitFor(() => expect(document.querySelectorAll("g.node")).toHaveLength(3));
+    expect(screen.getByText(/1 test file hidden/)).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("checkbox", { name: "Hide tests" }));
+    await waitFor(() => expect(document.querySelectorAll("g.node")).toHaveLength(4));
+  });
+
+  it("narrows to the file filter and its attached neighbours", async () => {
+    mockFetch({ "/api/deps": { body: graph } });
+    const { rerender } = renderWithQuery(
+      <DepsMap worktree={worktreeMain} selector={{ commit: "abc" }} changedPaths={new Set()} selectedPath={null} onSelectPath={() => {}} filter="helper" size={{ width: 600, height: 400 }} />,
+    );
+    await waitFor(() => expect(document.querySelectorAll("g.node")).toHaveLength(1));
+    rerender(
+      <DepsMap worktree={worktreeMain} selector={{ commit: "abc" }} changedPaths={new Set()} selectedPath={null} onSelectPath={() => {}} filter="app" size={{ width: 600, height: 400 }} />,
+    );
+    await waitFor(() => expect(document.querySelectorAll("g.node")).toHaveLength(2)); // app.ts + utils.ts neighbour
+    rerender(
+      <DepsMap worktree={worktreeMain} selector={{ commit: "abc" }} changedPaths={new Set()} selectedPath={null} onSelectPath={() => {}} filter="zzz" size={{ width: 600, height: 400 }} />,
+    );
+    expect(await screen.findByText("No files match the filter.")).toBeInTheDocument();
   });
 
   it("explains when nothing could be indexed", async () => {

@@ -181,6 +181,7 @@ export function ChangesetView({ worktree, selection, selectedPath, onSelectPath,
                 worktree={worktree}
                 selector={selector}
                 changedPaths={new Set(files.map((f) => f.path))}
+                filter={filter}
                 selectedPath={current?.path ?? null}
                 onSelectPath={(p) => {
                   onSelectPath(p);

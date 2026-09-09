@@ -848,8 +848,41 @@ button.ghost.on {
 }
 .dep-edge {
   stroke: var(--muted);
-  stroke-opacity: 0.6;
-  stroke-width: 1.2;
+  stroke-opacity: 0.35;
+  stroke-width: 1;
+  transition: stroke-opacity 0.12s;
+}
+.dep-edge.lit {
+  stroke: var(--accent);
+  stroke-opacity: 0.9;
+  stroke-width: 1.6;
+}
+.dep-edge.dim {
+  stroke-opacity: 0.08;
+}
+g.node.dim {
+  opacity: 0.2;
+}
+g.node {
+  transition: opacity 0.12s;
+}
+.hull circle {
+  fill: var(--accent);
+  fill-opacity: 0.05;
+  stroke: var(--accent);
+  stroke-opacity: 0.25;
+  stroke-dasharray: 4 4;
+}
+.hull-label {
+  font-size: 11px;
+  fill: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.lang-dot.hollow {
+  background: var(--bg-elev);
+  border: 1.5px solid var(--muted);
+  box-sizing: border-box;
 }
 g.node.clickable {
   cursor: pointer;

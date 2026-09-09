@@ -16,6 +16,13 @@ test("the dependency map shows changed files, their imports, and neighbours; cli
 
   await map.getByRole("checkbox", { name: "Neighbours" }).uncheck();
   await expect(map.locator("g.node")).toHaveCount(2);
+  await map.getByRole("checkbox", { name: "Neighbours" }).check();
+
+  // the file filter narrows the map too
+  await main.getByRole("searchbox").fill("readme");
+  await expect(map.locator("g.node")).toHaveCount(1);
+  await main.getByRole("searchbox").fill("");
+  await expect(map.locator("g.node")).toHaveCount(3);
 
   await map.getByRole("button", { name: /src\/feature\.ts/ }).click();
   await expect(main.getByRole("region", { name: "Diff for src/feature.ts" })).toBeVisible();
@@ -31,7 +38,9 @@ test("m toggles the map and depth 2 reaches second-order neighbours", async ({ p
   await expect(map).toBeVisible();
   // c3: app.ts -> utils.ts edge among the 5 changed files
   await expect(map.locator('line.dep-edge[data-from="src/app.ts"][data-to="src/utils.ts"]')).toHaveCount(1);
-  await expect(map.getByRole("list", { name: "Directories" })).toContainText("src");
+  await expect(map.getByRole("list", { name: "Legend" })).toContainText("modified");
+  await expect(map.locator("g.hull")).toHaveCount(3); // lib, src and root clusters
+  await map.getByRole("button", { name: "Fit" }).click();
   await page.keyboard.press("m");
   await expect(main.getByRole("region", { name: /Diff for/ })).toBeVisible();
 });
