@@ -6,6 +6,7 @@ import { zoom as d3zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } f
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { depsApi, type ChangesetSelector, type DepNode, type FileStatus, type Worktree } from "../api";
 import { alwaysLabelled, describe, fitTransform, groupCenters, radiusOf, viewGraph } from "./model";
+import { ZoomButtons } from "./ZoomButtons";
 
 interface Props {
   worktree: Worktree;
@@ -95,6 +96,13 @@ export function DepsMap({ worktree, selector, changedPaths, selectedPath, onSele
     [dims],
   );
 
+  const zoomBy = useCallback((k: number) => {
+    const svg = svgRef.current;
+    const z = zoomRef.current;
+    if (!svg || !z) return;
+    select(svg).call(z.scaleBy, k);
+  }, []);
+
   // (Re)build the simulation when the graph or layout options change.
   useEffect(() => {
     if (!view) return;
@@ -162,7 +170,7 @@ export function DepsMap({ worktree, selector, changedPaths, selectedPath, onSele
           [w, h],
         ];
       })
-      .filter((e: Event) => (e as MouseEvent).view !== null && !(e.target as Element).closest("g.node"))
+      .filter((e: Event) => (e as MouseEvent).view !== null && (!(e as MouseEvent).ctrlKey || e.type === "wheel") && !(e as MouseEvent).button && !(e.target as Element).closest("g.node"))
       .on("zoom", (e) => setTransform(e.transform));
     zoomRef.current = z;
     select(svg).call(z);
@@ -244,9 +252,7 @@ export function DepsMap({ worktree, selector, changedPaths, selectedPath, onSele
         <label className="check">
           <input type="checkbox" checked={hideTests} onChange={(e) => setHideTests(e.target.checked)} /> Hide tests
         </label>
-        <button type="button" className="ghost" onClick={() => fit(positions)} title="Fit the graph to the view">
-          Fit
-        </button>
+        <ZoomButtons onZoom={(k) => zoomBy(k)} onFit={() => fit(positions)} />
       </header>
       {query.isPending && <p role="status">Indexing imports…</p>}
       {query.isError && (

@@ -1139,3 +1139,8 @@ g.node.neighbour .dep-label {
   text-overflow: ellipsis;
   min-width: 0;
 }
+
+.zoom-buttons button {
+  min-width: 2rem;
+  justify-content: center;
+}

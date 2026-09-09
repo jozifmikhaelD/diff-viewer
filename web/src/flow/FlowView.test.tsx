@@ -50,6 +50,23 @@ describe("FlowView", () => {
     expect(screen.queryByRole("button", { name: /api\.ts/ })).not.toBeInTheDocument();
   });
 
+  it("zooms in and out with the buttons and refits", async () => {
+    mockFetch({ "/api/deps": { body: graph } });
+    renderWithQuery(
+      <FlowView worktree={worktreeMain} selector={{ commit: "abc" }} changedPaths={new Set()} selectedPath={null} onSelectPath={() => {}} size={{ width: 800, height: 400 }} />,
+    );
+    await waitFor(() => expect(document.querySelectorAll("g.flow-node")).toHaveLength(3));
+    const scale = () => Number(/scale\(([\d.]+)\)/.exec(document.querySelector("svg > g")!.getAttribute("transform") ?? "scale(1)")?.[1] ?? 1);
+    const before = scale();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Zoom in" }));
+    await waitFor(() => expect(scale()).toBeGreaterThan(before));
+    await user.click(screen.getByRole("button", { name: "Zoom out" }));
+    await waitFor(() => expect(scale()).toBeCloseTo(before, 3));
+    await user.click(screen.getByRole("button", { name: "Fit" }));
+    await waitFor(() => expect(scale()).toBeCloseTo(before, 3));
+  });
+
   it("copies a Mermaid diagram", async () => {
     mockFetch({ "/api/deps": { body: graph } });
     const user = userEvent.setup(); // installs a clipboard stub

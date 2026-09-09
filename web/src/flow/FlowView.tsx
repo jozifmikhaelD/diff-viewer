@@ -4,6 +4,7 @@ import { zoom as d3zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } f
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { depsApi, type ChangesetSelector, type FileStatus, type Worktree } from "../api";
 import { describe, fitTransform, viewGraph } from "../map/model";
+import { ZoomButtons } from "../map/ZoomButtons";
 import { layoutFlow, NODE_H, toMermaid, type FlowLayout } from "./layout";
 
 interface Props {
@@ -83,14 +84,22 @@ export function FlowView({ worktree, selector, changedPaths, selectedPath, onSel
           [w, h],
         ];
       })
-      // Synthetic events (tests) have no view; d3-zoom would dereference it.
-      .filter((e: Event) => (e as MouseEvent).view !== null && !(e as MouseEvent).ctrlKey && !(e as MouseEvent).button)
+      // d3's default rule (ctrl allowed only for wheel = trackpad pinch), plus:
+      // synthetic events (tests) have no view and d3-zoom would dereference it.
+      .filter((e: Event) => (e as MouseEvent).view !== null && (!(e as MouseEvent).ctrlKey || e.type === "wheel") && !(e as MouseEvent).button)
       .on("zoom", (e) => setTransform(e.transform));
     zoomRef.current = z;
     select(svg).call(z);
     return () => {
       select(svg).on(".zoom", null);
     };
+  }, []);
+
+  const zoomBy = useCallback((k: number) => {
+    const svg = svgRef.current;
+    const z = zoomRef.current;
+    if (!svg || !z) return;
+    select(svg).call(z.scaleBy, k);
   }, []);
 
   const fit = useCallback(() => {
@@ -148,9 +157,7 @@ export function FlowView({ worktree, selector, changedPaths, selectedPath, onSel
         <label className="check">
           <input type="checkbox" checked={hideTests} onChange={(e) => setHideTests(e.target.checked)} /> Hide tests
         </label>
-        <button type="button" className="ghost" onClick={fit} title="Fit the diagram to the view">
-          Fit
-        </button>
+        <ZoomButtons onZoom={(k) => zoomBy(k)} onFit={fit} />
         <button type="button" className="ghost" onClick={copyMermaid} title="Copy this diagram as Mermaid text" disabled={!layout || layout.nodes.length === 0}>
           {copied ? "Copied" : "Copy as Mermaid"}
         </button>
