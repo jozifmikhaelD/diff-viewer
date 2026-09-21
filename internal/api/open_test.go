@@ -12,10 +12,10 @@ import (
 	"testing/fstest"
 	"time"
 
-	"void/internal/config"
-	"void/internal/git"
-	"void/internal/testutil"
-	"void/internal/watch"
+	"github.com/jozifmikhaelD/diff-viewer/internal/config"
+	"github.com/jozifmikhaelD/diff-viewer/internal/git"
+	"github.com/jozifmikhaelD/diff-viewer/internal/testutil"
+	"github.com/jozifmikhaelD/diff-viewer/internal/watch"
 )
 
 func post(t *testing.T, h http.Handler, target string, body any) *httptest.ResponseRecorder {

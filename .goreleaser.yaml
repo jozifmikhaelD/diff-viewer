@@ -19,7 +19,7 @@ archives:
   - id: default
     formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    files: [README.md, LICENSE]
+    files: [README.md]
 
 checksum:
   name_template: checksums.txt
@@ -30,4 +30,4 @@ changelog:
     exclude: ["^docs:", "^test:", "^chore:"]
 
 release:
-  draft: true
+  draft: false

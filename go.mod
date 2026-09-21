@@ -1,4 +1,4 @@
-module void
+module github.com/jozifmikhaelD/diff-viewer
 
 go 1.25.7
 

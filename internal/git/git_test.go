@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"void/internal/testutil"
+	"github.com/jozifmikhaelD/diff-viewer/internal/testutil"
 )
 
 func TestOpenMainRepo(t *testing.T) {

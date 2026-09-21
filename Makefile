@@ -3,6 +3,7 @@ PNPM ?= pnpm
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 GO_PORT ?= 4000
+GOLANGCI_LINT_VERSION ?= v2.6.0
 
 .PHONY: help dev dev-go dev-web web build verify perf release-snapshot test test-go test-web e2e lint fixture clean
 
@@ -47,9 +48,10 @@ test-web: ## frontend unit tests
 e2e: web ## Playwright against the real binary + fixture repo
 	cd web && $(PNPM) e2e
 
-lint: ## vet, golangci-lint (if installed), eslint, tsc
+lint: ## vet, golangci-lint (pinned via go run if not installed), oxlint, tsc
 	go vet ./...
-	@command -v golangci-lint >/dev/null && golangci-lint run ./... || echo "golangci-lint not installed; skipped"
+	@if command -v golangci-lint >/dev/null; then golangci-lint run ./...; \
+	else GOFLAGS=-mod=mod go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run ./...; fi
 	cd web && $(PNPM) lint && $(PNPM) typecheck
 
 fixture: ## build the fixture repo into ./tmp/fixture for manual poking

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"void/internal/deps"
+	"github.com/jozifmikhaelD/diff-viewer/internal/deps"
 )
 
 func paths(g deps.Graph) []string {

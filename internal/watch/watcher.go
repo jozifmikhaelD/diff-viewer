@@ -90,7 +90,7 @@ func (w *Watcher) Run(ctx context.Context) error {
 		w.polling.Store(true)
 	} else {
 		w.fsw = fsw
-		defer fsw.Close()
+		defer func() { _ = fsw.Close() }()
 		if err := w.addAll(ctx); err != nil {
 			log.Printf("watch %s: %v; falling back to polling", w.root, err)
 			w.polling.Store(true)

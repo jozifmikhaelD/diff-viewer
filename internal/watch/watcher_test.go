@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"void/internal/git"
-	"void/internal/testutil"
+	"github.com/jozifmikhaelD/diff-viewer/internal/git"
+	"github.com/jozifmikhaelD/diff-viewer/internal/testutil"
 )
 
 func startWatcher(t *testing.T, root string, opts Options) (<-chan Event, *Watcher) {

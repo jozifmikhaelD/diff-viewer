@@ -11,9 +11,9 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"void/internal/git"
-	"void/internal/testutil"
-	"void/internal/watch"
+	"github.com/jozifmikhaelD/diff-viewer/internal/git"
+	"github.com/jozifmikhaelD/diff-viewer/internal/testutil"
+	"github.com/jozifmikhaelD/diff-viewer/internal/watch"
 )
 
 type testServer struct {

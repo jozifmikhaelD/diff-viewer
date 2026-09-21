@@ -5,7 +5,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"void/internal/git"
+	"github.com/jozifmikhaelD/diff-viewer/internal/git"
 )
 
 func TestBlameEndpoint(t *testing.T) {

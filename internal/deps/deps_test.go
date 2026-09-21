@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"void/internal/git"
-	"void/internal/testutil"
+	"github.com/jozifmikhaelD/diff-viewer/internal/git"
+	"github.com/jozifmikhaelD/diff-viewer/internal/testutil"
 )
 
 func TestBuildIndexAndGraph(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"void/internal/git"
+	"github.com/jozifmikhaelD/diff-viewer/internal/git"
 )
 
 // Source is a snapshot of a tree: the files in it and their contents.
@@ -138,7 +138,6 @@ type OverlaySource struct {
 	Root    string          // directory to read overlay files from
 	Changed map[string]bool // paths whose content comes from Root
 	Deleted map[string]bool // paths absent from the snapshot
-	key     string
 }
 
 func (o *OverlaySource) Key() string { return "" } // never cached: disk state is volatile

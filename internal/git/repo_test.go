@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"void/internal/testutil"
+	"github.com/jozifmikhaelD/diff-viewer/internal/testutil"
 )
 
 func openFixture(t *testing.T) (*Repo, string) {

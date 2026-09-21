@@ -314,7 +314,7 @@ func countLines(path string) (lines int, binary bool, err error) {
 	if err != nil {
 		return 0, false, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	br := bufio.NewReaderSize(f, 64*1024)
 	head, _ := br.Peek(8192)
 	if bytes.IndexByte(head, 0) >= 0 {

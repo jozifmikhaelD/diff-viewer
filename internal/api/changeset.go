@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"void/internal/git"
+	"github.com/jozifmikhaelD/diff-viewer/internal/git"
 )
 
 // ChangesetResponse is a git.Changeset plus how it was selected.

@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"void/internal/config"
-	"void/internal/git"
-	"void/internal/watch"
+	"github.com/jozifmikhaelD/diff-viewer/internal/config"
+	"github.com/jozifmikhaelD/diff-viewer/internal/git"
+	"github.com/jozifmikhaelD/diff-viewer/internal/watch"
 )
 
 // Options configures optional server features.

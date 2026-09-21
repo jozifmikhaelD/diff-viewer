@@ -3,7 +3,7 @@ package deps
 import (
 	"sort"
 
-	"void/internal/git"
+	"github.com/jozifmikhaelD/diff-viewer/internal/git"
 )
 
 // Node is a file in the dependency graph.

@@ -1,4 +1,4 @@
-# void
+# diff-viewer (`void`)
 
 A local web app for reading git changes. Point it at any repository, click a
 commit, and see what changed, how much, and how the changed files connect.
@@ -7,6 +7,9 @@ commit, and see what changed, how much, and how the changed files connect.
 void .                # serve the repo in the current directory
 void -open ~/src/app  # serve another repo and open the browser
 ```
+
+Everything runs on your machine. It never runs a git command that modifies
+your repository.
 
 ## What it does
 
@@ -25,10 +28,78 @@ void -open ~/src/app  # serve another repo and open the browser
 - **Live**: edits, staging, and commits show up without a reload.
 - **Open…** switches to another repository; recent ones are remembered.
 
-Works with any repo, inside dev containers, and across worktrees. It never
-runs a git command that modifies your repository.
+Works with any repo, inside dev containers, and across worktrees.
 
-## Keyboard
+## Install
+
+You need **git 2.30 or newer** on your PATH. macOS and Linux are supported;
+Windows is not yet.
+
+### Option 1: download a binary
+
+Grab the archive for your platform from the
+[releases page](https://github.com/jozifmikhaelD/diff-viewer/releases),
+unpack it, and put `void` somewhere on your PATH:
+
+```sh
+tar -xzf void_*_darwin_arm64.tar.gz
+mv void /usr/local/bin/
+void -version
+```
+
+On macOS the first run may be blocked by Gatekeeper. Allow it with:
+
+```sh
+xattr -d com.apple.quarantine /usr/local/bin/void
+```
+
+### Option 2: build from source
+
+Requirements:
+
+| Tool | Version | Notes |
+| --- | --- | --- |
+| Go | 1.25+ | https://go.dev/dl |
+| Node | 22+ | `nvm use` picks it up from `.nvmrc` |
+| pnpm | 10 | `corepack enable` installs the pinned version automatically |
+
+```sh
+git clone git@github.com:jozifmikhaelD/diff-viewer.git
+cd diff-viewer
+corepack enable        # once per machine; makes pnpm available
+make build             # builds the frontend and the Go binary
+bin/void .             # run it against this repo
+```
+
+`make build` produces a single self-contained binary at `bin/void` with the
+frontend embedded. Copy it anywhere on your PATH.
+
+If `pnpm` is not found after `corepack enable`, install it directly with
+`npm install -g pnpm@10` and try again.
+
+## Use
+
+```sh
+void [flags] [path]
+```
+
+| Flag | Meaning |
+| --- | --- |
+| `-open` | open the browser after starting |
+| `-port N` | listen on port N (default 4000, `0` picks a free port) |
+| `-host H` | bind address (default `127.0.0.1`) |
+| `-no-watch` | do not watch the repository for changes |
+| `-version` | print the version and exit |
+
+Inside a dev container, bind all interfaces and forward the port:
+
+```sh
+void -host 0.0.0.0 -port 4000 /workspaces/app
+```
+
+Recent repositories are stored in `~/.config/void/config.json`.
+
+### Keyboard
 
 | Key | Action |
 | --- | --- |
@@ -40,38 +111,42 @@ runs a git command that modifies your repository.
 | `?` | show this list |
 | shift-click | select a commit range |
 
-## Install
-
-Download a binary from the releases page, or build it yourself:
-
-```sh
-make build        # needs Go 1.25+, Node 22+ (nvm use), pnpm
-bin/void [path]
-```
-
-Needs git 2.30 or newer at runtime.
-
-Inside a dev container, bind all interfaces and forward the port:
-
-```sh
-void -host 0.0.0.0 -port 4000 /workspaces/app
-```
-
-Flags: `-host`, `-port` (0 picks a free port), `-open`, `-no-watch`, `-version`.
-Recent repositories are stored in `~/.config/void/config.json`.
-
 ## Develop
 
+Same requirements as building from source. Then:
+
 ```sh
-make dev      # Go API on :4000 and Vite on :5173 with live reload
-make test     # Go and frontend unit tests
-make e2e      # Playwright against the real binary
-make verify   # build and smoke-test the binary
+make dev       # Go API on :4000 and Vite on :5173 with live reload
+make test      # Go and frontend unit tests
+make lint      # go vet, golangci-lint, oxlint, tsc
+make e2e       # Playwright against the real binary and a fixture repo
+make verify    # build the binary and smoke-test it
+make help      # list every target
 ```
 
-The design and milestone history are in [docs/plan.md](docs/plan.md).
+Open http://localhost:5173 while `make dev` is running; Vite proxies `/api`
+to the Go server. `make dev` serves this repository by default; pass
+`REPO=/path/to/other` to serve another one.
 
-## Layout
+The first `make e2e` needs a browser: run `cd web && pnpm e2e:install` once.
+
+golangci-lint is optional locally. Install it with
+`brew install golangci-lint` or run the pinned version without installing:
+
+```sh
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.6.0 run ./...
+```
+
+### Releasing
+
+Push a tag and CI builds the archives and publishes a GitHub release:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+### Layout
 
 ```
 cmd/void          CLI
@@ -82,5 +157,3 @@ internal/config   recent repositories
 internal/api      JSON API, server-sent events, embedded frontend
 web/              React frontend, embedded into the binary
 ```
-
-MIT licensed.

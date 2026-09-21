@@ -10,9 +10,9 @@ import (
 	"testing/fstest"
 	"time"
 
-	"void/internal/git"
-	"void/internal/testutil"
-	"void/internal/watch"
+	"github.com/jozifmikhaelD/diff-viewer/internal/git"
+	"github.com/jozifmikhaelD/diff-viewer/internal/testutil"
+	"github.com/jozifmikhaelD/diff-viewer/internal/watch"
 )
 
 func TestEventsStream(t *testing.T) {
@@ -29,7 +29,7 @@ func TestEventsStream(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { res.Body.Close() })
+	t.Cleanup(func() { _ = res.Body.Close() })
 	if ct := res.Header.Get("Content-Type"); ct != "text/event-stream" {
 		t.Fatalf("content-type = %q", ct)
 	}
@@ -42,7 +42,7 @@ func TestEventsStream(t *testing.T) {
 
 	rd := bufio.NewReader(res.Body)
 	var gotRetry, gotEvent, gotData, gotPing bool
-	for !(gotRetry && gotEvent && gotData && gotPing) {
+	for !gotRetry || !gotEvent || !gotData || !gotPing {
 		line, err := rd.ReadString('\n')
 		if err != nil {
 			t.Fatalf("read: %v (retry=%v event=%v data=%v ping=%v)", err, gotRetry, gotEvent, gotData, gotPing)

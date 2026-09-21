@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"void/internal/deps"
-	"void/internal/git"
+	"github.com/jozifmikhaelD/diff-viewer/internal/deps"
+	"github.com/jozifmikhaelD/diff-viewer/internal/git"
 )
 
 const maxGraphNodes = 300

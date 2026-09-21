@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"void/internal/deps/lang"
+	"github.com/jozifmikhaelD/diff-viewer/internal/deps/lang"
 )
 
 // Index is the import graph of one snapshot.

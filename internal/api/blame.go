@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"void/internal/git"
+	"github.com/jozifmikhaelD/diff-viewer/internal/git"
 )
 
 // handleBlame serves GET /api/blame with the selector params plus path=.

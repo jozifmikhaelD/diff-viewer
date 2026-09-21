@@ -19,11 +19,11 @@ import (
 	"syscall"
 	"time"
 
-	"void/internal/api"
-	"void/internal/config"
-	"void/internal/git"
-	"void/internal/watch"
-	"void/web"
+	"github.com/jozifmikhaelD/diff-viewer/internal/api"
+	"github.com/jozifmikhaelD/diff-viewer/internal/config"
+	"github.com/jozifmikhaelD/diff-viewer/internal/git"
+	"github.com/jozifmikhaelD/diff-viewer/internal/watch"
+	"github.com/jozifmikhaelD/diff-viewer/web"
 )
 
 // version is overridden at build time via -ldflags "-X main.version=...".
@@ -44,7 +44,7 @@ func run() error {
 	noWatch := fs.Bool("no-watch", false, "disable file watching and live updates")
 	showVersion := fs.Bool("version", false, "print version and exit")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "usage: void [flags] [path]\n\nServe a visual changeset viewer for the git repository at path (default \".\").\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "usage: void [flags] [path]\n\nServe a visual changeset viewer for the git repository at path (default \".\").\n\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(os.Args[1:]); err != nil {

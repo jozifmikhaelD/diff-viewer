@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"void/internal/watch"
+	"github.com/jozifmikhaelD/diff-viewer/internal/watch"
 )
 
 // heartbeatInterval keeps idle SSE connections alive through proxies.
@@ -31,7 +31,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "retry: 2000\n\n")
+	_, _ = fmt.Fprint(w, "retry: 2000\n\n")
 	flusher.Flush()
 
 	events, unsubscribe := s.bus.Subscribe()
@@ -43,7 +43,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case <-ticker.C:
-			fmt.Fprint(w, ": ping\n\n")
+			_, _ = fmt.Fprint(w, ": ping\n\n")
 			flusher.Flush()
 		case ev, ok := <-events:
 			if !ok {
@@ -53,7 +53,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				continue
 			}
-			fmt.Fprintf(w, "event: change\ndata: %s\n\n", data)
+			_, _ = fmt.Fprintf(w, "event: change\ndata: %s\n\n", data)
 			flusher.Flush()
 		}
 	}

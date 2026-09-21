@@ -17,9 +17,9 @@ import (
 	"sync"
 	"time"
 
-	"void/internal/deps"
-	"void/internal/git"
-	"void/internal/watch"
+	"github.com/jozifmikhaelD/diff-viewer/internal/deps"
+	"github.com/jozifmikhaelD/diff-viewer/internal/git"
+	"github.com/jozifmikhaelD/diff-viewer/internal/watch"
 )
 
 const (
