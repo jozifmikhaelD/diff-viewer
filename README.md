@@ -113,6 +113,28 @@ Recent repositories are stored in `~/.config/void/config.json`.
 
 ## Develop
 
+### Option A: dev container (nothing to install but Docker)
+
+1. Install [Docker](https://docs.docker.com/get-docker/) and VS Code with the
+   [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+   extension.
+2. Clone the repo, open the folder in VS Code, and choose **Reopen in
+   Container** when prompted.
+3. Wait for the first build. It installs Go, Node, pnpm, Chromium, and every
+   dependency, then starts `make dev` automatically.
+4. VS Code opens http://localhost:5173 when the server is up. Every `make`
+   target below works inside the container. The dev server's output is in
+   `/tmp/dev.log`; `tail -f /tmp/dev.log` follows it.
+
+From a terminal without VS Code:
+
+```sh
+npx @devcontainers/cli up --workspace-folder .
+npx @devcontainers/cli exec --workspace-folder . make test
+```
+
+### Option B: on your machine
+
 Same requirements as building from source. Then:
 
 ```sh

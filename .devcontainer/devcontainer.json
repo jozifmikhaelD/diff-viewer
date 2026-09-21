@@ -1,0 +1,23 @@
+{
+  "name": "diff-viewer",
+  "image": "mcr.microsoft.com/devcontainers/go:1-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "22", "pnpmVersion": "10.28.1" }
+  },
+  "mounts": [
+    "source=diff-viewer-web-node_modules,target=${containerWorkspaceFolder}/web/node_modules,type=volume"
+  ],
+  "forwardPorts": [5173, 4000],
+  "portsAttributes": {
+    "5173": { "label": "diff-viewer (Vite, live reload)", "onAutoForward": "openBrowser" },
+    "4000": { "label": "Go API", "onAutoForward": "silent" }
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "postStartCommand": "nohup make dev > /tmp/dev.log 2>&1 &",
+  "customizations": {
+    "vscode": {
+      "extensions": ["golang.go", "dbaeumer.vscode-eslint", "esbenp.prettier-vscode"],
+      "settings": { "go.toolsManagement.autoUpdate": true }
+    }
+  }
+}
