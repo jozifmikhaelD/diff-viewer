@@ -175,7 +175,28 @@ func TestWatcherDebouncesBursts(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	expectEvent(t, events, KindWorktree, 2*time.Second)
+	// The watcher force-publishes after 4x Debounce so a long burst still
+	// surfaces, and a slow runner can stretch this burst past that boundary.
+	// Debouncing is proven by a handful of events, not exactly one.
+	extra := countEvents(events, 500*time.Millisecond)
+	if extra > 2 {
+		t.Fatalf("20 writes produced %d events; debounce is not collapsing them", extra+1)
+	}
 	expectQuiet(t, events, 300*time.Millisecond)
+}
+
+// countEvents drains events for the given duration and returns how many arrived.
+func countEvents(events <-chan Event, within time.Duration) int {
+	n := 0
+	deadline := time.After(within)
+	for {
+		select {
+		case <-events:
+			n++
+		case <-deadline:
+			return n
+		}
+	}
 }
 
 func TestWatcherPollingFallback(t *testing.T) {
