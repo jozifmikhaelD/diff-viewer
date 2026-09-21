@@ -24,6 +24,7 @@ dev-web: ## run the Vite dev server (proxies /api to :$(GO_PORT))
 
 web: ## build the frontend into web/dist
 	cd web && $(PNPM) install --frozen-lockfile && $(PNPM) build
+	@touch web/dist/.gitkeep  # vite empties dist; keep the embed placeholder tracked
 
 build: web ## build the single binary at bin/void (embeds web/dist)
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o bin/void ./cmd/void
