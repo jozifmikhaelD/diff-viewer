@@ -35,7 +35,23 @@ Works with any repo, inside dev containers, and across worktrees.
 You need **git 2.30 or newer** on your PATH. macOS and Linux are supported;
 Windows is not yet.
 
-### Option 1: download a binary
+### Option 1: one line
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/jozifmikhaelD/diff-viewer/main/install.sh | sh
+```
+
+This downloads the latest release for your platform, verifies its checksum,
+and installs `void` into `/usr/local/bin` (or `~/.local/bin` if that is not
+writable). Set `VOID_VERSION=v0.1.0` to pin a version or `VOID_INSTALL_DIR`
+to choose the directory. Then:
+
+```sh
+cd ~/src/some-repo
+void -open .
+```
+
+### Option 2: download a binary yourself
 
 Grab the archive for your platform from the
 [releases page](https://github.com/jozifmikhaelD/diff-viewer/releases),
@@ -53,7 +69,7 @@ On macOS the first run may be blocked by Gatekeeper. Allow it with:
 xattr -d com.apple.quarantine /usr/local/bin/void
 ```
 
-### Option 2: build from source
+### Option 3: build from source
 
 Requirements:
 
