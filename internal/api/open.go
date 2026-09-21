@@ -22,6 +22,12 @@ type Options struct {
 	Config *config.Store
 	// Watch enables file watching for the open repository's worktrees.
 	Watch bool
+	// Host is the address the server listens on. When set, requests whose
+	// Host header names anything but a loopback address or Host are refused,
+	// and cross-origin requests are refused. This blocks DNS rebinding and
+	// CSRF from other pages against a server on localhost. A wildcard bind
+	// ("0.0.0.0" or "::") keeps the cross-origin check but accepts any Host.
+	Host string
 }
 
 // repoState is everything that depends on which repository is open.

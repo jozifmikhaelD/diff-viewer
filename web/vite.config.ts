@@ -7,7 +7,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    proxy: { "/api": "http://127.0.0.1:4000" },
+    // Keep the browser's Host header so the Go server's same-origin check
+    // (Origin must equal Host) passes through the proxy.
+    proxy: { "/api": { target: "http://127.0.0.1:4000", changeOrigin: false } },
   },
   build: { outDir: "dist", emptyOutDir: true },
   test: {

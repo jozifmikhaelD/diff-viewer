@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -78,7 +80,52 @@ func NewWithOptions(repo *git.Repo, static fs.FS, version string, bus *watch.Bus
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !s.sameOrigin(r) {
+		writeError(w, http.StatusForbidden, "forbidden: request must come from the page void served")
+		return
+	}
 	s.mux.ServeHTTP(w, r)
+}
+
+// sameOrigin reports whether r is addressed to this server (not a rebound
+// DNS name) and, when a browser sends an Origin, comes from a page this
+// server served. Disabled when Options.Host is empty (tests, embedding).
+func (s *Server) sameOrigin(r *http.Request) bool {
+	bound := s.opts.Host
+	if bound == "" {
+		return true
+	}
+	wildcard := bound == "0.0.0.0" || bound == "::" || bound == "[::]"
+	host := hostOnly(r.Host)
+	if !wildcard && !isLoopbackName(host) && host != strings.Trim(bound, "[]") {
+		return false
+	}
+	if origin := r.Header.Get("Origin"); origin != "" {
+		u, err := url.Parse(origin)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+			return false // includes the opaque "null" origin
+		}
+		if !strings.EqualFold(u.Host, r.Host) {
+			return false
+		}
+	}
+	return true
+}
+
+// hostOnly strips the port from a Host header value.
+func hostOnly(hostport string) string {
+	if h, _, err := net.SplitHostPort(hostport); err == nil {
+		return h
+	}
+	return strings.Trim(hostport, "[]")
+}
+
+func isLoopbackName(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // current returns the open repository.

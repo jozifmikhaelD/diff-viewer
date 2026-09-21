@@ -91,7 +91,7 @@ func run() error {
 	if err != nil {
 		log.Printf("config: %v (recent repos disabled)", err)
 	}
-	handler := api.NewWithOptions(repo, web.Dist(), version, bus, api.Options{Config: store, Watch: !*noWatch})
+	handler := api.NewWithOptions(repo, web.Dist(), version, bus, api.Options{Config: store, Watch: !*noWatch, Host: *host})
 	defer handler.Close()
 	srv := &http.Server{
 		Handler:           handler,

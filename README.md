@@ -113,6 +113,10 @@ Inside a dev container, bind all interfaces and forward the port:
 void -host 0.0.0.0 -port 4000 /workspaces/app
 ```
 
+`-host 0.0.0.0` exposes the repository, read-only and without authentication,
+to anything that can reach the container. Use it only behind your editor's
+port forwarding, never on a shared network.
+
 Recent repositories are stored in `~/.config/void/config.json`.
 
 ### Keyboard
